@@ -1,8 +1,8 @@
-# Copias de entrega (se generan a partir de este mismo repositorio)
+# Delivery copies (generated from this same repository)
 entrega/
 *.zip
 
-# Compilados, datos locales y entorno
+# Build outputs, local data and IDE
 target/
 __pycache__/
 *.pyc
@@ -13,8 +13,9 @@ logs/
 .idea/
 *.iml
 
-# AWS: nunca versionar la IP de la EC2, llaves ni credenciales
+# AWS: never version the EC2 IP file, keys or credentials
 .env.aws
+.env*
 *.pem
 *.ppk
 credentials

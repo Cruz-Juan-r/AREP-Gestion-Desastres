@@ -28,7 +28,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Root = Split-Path -Parent $PSScriptRoot          # prototipo-edge/
+$Root = Split-Path -Parent $PSScriptRoot          # repository root
 $EnvFile = Join-Path $Root '.env.aws'
 
 function Step([string]$msg) { Write-Host "==> $msg" -ForegroundColor Cyan }

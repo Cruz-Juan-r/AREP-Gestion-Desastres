@@ -1,4 +1,4 @@
-# National cloud API (Spring Boot). Build context: the prototipo-edge/ root (multi-module Maven).
+# National cloud API (Spring Boot). Build context: the repository root (multi-module Maven).
 #   docker build -f cloud-api/Dockerfile .
 # Unit tests run with ./mvnw verify on the host, not here.
 FROM eclipse-temurin:21-jdk AS build

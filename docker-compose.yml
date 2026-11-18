@@ -5,6 +5,9 @@
 #
 # edge y cloud: Spring Boot 3 (Java 21). broker: Mosquitto.
 # wan, simulator y experiment: herramientas de prueba en Python (Dockerfile.tools).
+# Fixed project name: containers and volumes keep the prototipo-edge-* names.
+name: prototipo-edge
+
 services:
   broker:                       # campo -> edge (red local del municipio)
     image: eclipse-mosquitto:2

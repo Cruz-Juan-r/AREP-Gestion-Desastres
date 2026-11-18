@@ -66,7 +66,7 @@ credenciales caducan; el disco, la imagen Docker y la base de la nube se conserv
 2. **AWS Details → AWS CLI: Show**, copiar el bloque `[default]` completo y pegarlo en
    `%USERPROFILE%\.aws\credentials` (reemplazando el anterior).
 3. Abrir Docker Desktop.
-4. Desde `prototipo-edge/`:
+4. Desde la raíz del repositorio:
 
    ```powershell
    powershell -ExecutionPolicy Bypass -File scripts\aws-up.ps1 -Demo

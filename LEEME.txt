@@ -2,26 +2,30 @@ PROYECTO AREP - Sistema Nacional/Regional de Gestión de Respuesta a Desastres
 Juan Esteban Cruz, Deisy Lorena Guzmán, Sebastián Villarraga
 
 CONTENIDO
-  sistema_gestion_desastres.pdf ... documento compilado (ESTE es el que se lee)
-  documento/ ...................... código fuente LaTeX del documento
+  docs/sistema_gestion_desastres.pdf ... documento compilado (ESTE es el que se lee)
+  docs/documento/ ...................... código fuente LaTeX del documento
      sistema_gestion_desastres.tex   documento principal
      seccion_prototipo.tex           sección 7: prototipo (se incluye con \input)
      tabla_resultados.tex            tabla de resultados (la genera el experimento)
      figuras/                        PNG que usa el .tex
      diagramas-c4/                   fuentes .puml, PNG y SVG de los diagramas C4
-  prototipo-edge/ ................. código fuente del prototipo (ver su README.md)
-     edge-node/, cloud-api/, shared/   servicios reales en Java 21 + Spring Boot 3 (Maven, mvnw)
+  README.md ............................ descripción del prototipo y cómo ejecutarlo
+  pom.xml, mvnw ........................ proyecto Maven multimódulo del prototipo
+     shared/, edge-node/, cloud-api/   servicios reales en Java 21 + Spring Boot 3
      simulator/, wan/, experiment/     herramientas de prueba en Python
+  results/, results-aws/ ............... resultados del experimento (local y con la nube en AWS)
+  docs/aws/ ............................ despliegue de la nube en AWS EC2
 
 COMPILAR EL DOCUMENTO
-  cd documento
+  cd docs/documento
   pdflatex sistema_gestion_desastres.tex   (dos veces, para el índice)
-  En Overleaf: subir la carpeta documento/ completa y compilar con pdfLaTeX.
+  En Overleaf: subir la carpeta docs/documento/ completa y compilar con pdfLaTeX.
 
-EJECUTAR EL PROTOTIPO
-  cd prototipo-edge
+EJECUTAR EL PROTOTIPO (desde la raíz del repositorio)
   docker compose up --build -d                              -> http://localhost:8080
   docker compose --profile experiment run --rm experiment   -> repite el experimento
   Pruebas unitarias (JUnit): mvnw.cmd verify   (en Linux/macOS: ./mvnw verify)
   Sin Docker: mvnw.cmd -DskipTests package, pip install -r requirements.txt
               y python scripts/run_local_stack.py
+  Con la nube en AWS: powershell -ExecutionPolicy Bypass -File scripts\aws-up.ps1
+              (ver docs/aws/despliegue-aws.md)

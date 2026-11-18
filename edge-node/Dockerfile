@@ -1,4 +1,4 @@
-# Edge node (Spring Boot). Build context: the prototipo-edge/ root (multi-module Maven).
+# Edge node (Spring Boot). Build context: the repository root (multi-module Maven).
 #   docker build -f edge-node/Dockerfile .
 # Unit tests run with ./mvnw verify on the host (one of them needs Python), not here.
 FROM eclipse-temurin:21-jdk AS build

@@ -101,7 +101,7 @@ class PythonAuditCompatibilityTest {
         return Json.MAPPER.readTree(lastLine);
     }
 
-    /** prototipo-edge/ (the directory that contains common/auditlog.py). */
+    /** Repository root (the directory that contains common/auditlog.py). */
     private static Path projectRoot() {
         Path p = Path.of("").toAbsolutePath();
         for (int i = 0; i < 3 && p != null; i++, p = p.getParent()) {

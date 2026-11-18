@@ -1,8 +1,22 @@
-# Prototipo: nodo edge de alertas en tiempo real con conectividad intermitente
+# Sistema de Gestión de Respuesta a Desastres: prototipo de nodo edge
 
-Proyecto AREP — *Sistema Nacional/Regional de Gestión de Respuesta a Desastres
-Naturales y Asignación Resiliente de Recursos*.
+Proyecto AREP (Arquitecturas Empresariales), Escuela Colombiana de Ingeniería Julio
+Garavito — *Sistema Nacional/Regional de Gestión de Respuesta a Desastres Naturales
+y Asignación Resiliente de Recursos*.
 Juan Esteban Cruz, Deisy Lorena Guzmán, Sebastián Villarraga.
+
+Este repositorio contiene:
+
+| Qué | Dónde |
+|---|---|
+| Documento de arquitectura (PDF compilado) | [`docs/sistema_gestion_desastres.pdf`](docs/sistema_gestion_desastres.pdf) |
+| Fuente LaTeX del documento y diagramas C4 | [`docs/documento/`](docs/documento/) |
+| Prototipo (proyecto Maven multimódulo, Java 21 + Spring Boot 3) | raíz del repositorio: [`pom.xml`](pom.xml), [`edge-node/`](edge-node/), [`cloud-api/`](cloud-api/), [`shared/`](shared/) |
+| Herramientas de prueba en Python | [`simulator/`](simulator/), [`wan/`](wan/), [`experiment/`](experiment/), [`common/`](common/) |
+| Resultados del experimento | [`results/`](results/) (local) y [`results-aws/`](results-aws/) (nube en AWS) |
+| Despliegue de la nube en AWS EC2 | [`docs/aws/despliegue-aws.md`](docs/aws/despliegue-aws.md) |
+
+## Prototipo: nodo edge de alertas en tiempo real con conectividad intermitente
 
 El prototipo implementa el **nodo edge del puesto de mando unificado (PMU)**
 del diagrama de despliegue C4. Responde esta pregunta: ¿puede un nodo edge
@@ -64,9 +78,15 @@ simulator/   dispositivos de campo y escenario con verdad de terreno          [P
 experiment/  experimento, métricas, figuras y tabla LaTeX                     [Python]
 contracts/   JSON Schema, OpenAPI y tópicos MQTT
 docker/      configuración de Mosquitto
-docs/        diagrama de contenedores del prototipo (Graphviz) y despliegue en AWS (docs/aws/)
 scripts/     arranque local sin Docker (run_local_stack.py) y despliegue en AWS (aws-up.ps1, aws-down.ps1)
+results/     resultados del experimento 100 % local (los usa el documento)
 results-aws/ resultados del experimento con la nube en AWS
+docs/
+  sistema_gestion_desastres.pdf  documento de arquitectura compilado
+  documento/                     fuente LaTeX, figuras y diagramas C4 del documento
+  diagramas/                     diagrama de contenedores del prototipo (Graphviz)
+  aws/                           despliegue en AWS EC2 y evidencias
+docker-compose.yml               stack 100 % local (broker, edge, wan, cloud)
 docker-compose.aws.yml           stack del portátil cuando la nube corre en EC2
 Dockerfile.tools                 imagen Python de las herramientas de prueba
 edge-node/Dockerfile, cloud-api/Dockerfile   imágenes Java (construcción multietapa)
