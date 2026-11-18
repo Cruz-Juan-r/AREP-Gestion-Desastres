@@ -97,6 +97,17 @@ Agrega dos que el diseño general dejaba implícitos dentro del agente de
 captura y del motor de interoperabilidad: el broker MQTT local y el detector de
 eventos en el borde.
 
+Los dos servicios construidos, el nodo \emph{edge} y la API de la nube, están
+implementados en Java~21 con Spring Boot~3.5, como un proyecto Maven
+multimódulo: un módulo compartido con los contratos y el detector, y un módulo
+por servicio. El nodo \emph{edge} usa Eclipse Paho como cliente MQTT, SQLite
+mediante Spring JDBC para el almacén local y \emph{Server-Sent Events} para el
+COP; la nube expone su API con Spring MVC y la documenta con OpenAPI. Las
+herramientas de prueba (simulador de dispositivos, emulador del enlace y
+experimento) están en Python y solo hablan con los servicios a través de sus
+contratos: MQTT, HTTP/JSON y el archivo SQLite del nodo \emph{edge}, que el
+experimento lee para verificar la auditoría.
+
 \begin{figure}[p]
   \centering
   \includegraphics[width=\textwidth,height=0.86\textheight,keepaspectratio]{figuras/prototipo_contenedores.png}
@@ -237,9 +248,10 @@ con 500 dispositivos simulados a 10\,Hz (500 mensajes por segundo durante
 40\,s). Para H5 se copia la base local, se altera una entrada intermedia de la
 bitácora y se verifica la cadena.
 
-El entorno de medición fue un único equipo Linux con todos los servicios como
-procesos locales (Python 3.13, broker amqtt). La WAN emulada es la única fuente
-de latencia de red.
+El entorno de medición fue un único equipo Windows~11 con Docker Desktop:
+nodo \emph{edge} y nube en Spring Boot~3.5 sobre Java~21, broker Mosquitto~2 y
+herramientas de prueba en Python~3.13, todos en contenedores. La WAN emulada es
+la única fuente de latencia de red.
 
 \subsection{Resultados}
 
@@ -272,45 +284,101 @@ figuras~\ref{fig:latencia} y~\ref{fig:timeline} muestran su comportamiento.
 \end{figure}
 
 \textbf{H1 (latencia y continuidad).} Se cumple. El \emph{edge} entregó las
-alertas con una mediana de 2\,ms y un p95 de 23\,ms (máximo 42\,ms), sin
+alertas con una mediana de 10,5\,ms y un p95 de 42\,ms (máximo 47\,ms), sin
 diferencia apreciable durante la caída. La línea base tuvo una mediana de
-448\,ms y un p95 de 2\,379\,ms. Con el enlace disponible su p95 fue 461\,ms,
+380\,ms y un p95 de 2\,414\,ms. Con el enlace disponible su p95 fue 445\,ms,
 casi todo el viaje de ida y vuelta por la WAN. Durante la caída solo generó
 alerta para 2 de 12 episodios, y únicamente porque esos episodios seguían
-activos cuando volvió el enlace, con 1,3 y 4,4\,s de retraso. El \emph{edge}
+activos cuando volvió el enlace, con 1,4 y 4,3\,s de retraso. El \emph{edge}
 detectó los 24 episodios (19 por umbral y 5 crecidas súbitas por z-score), sin
 falsas alarmas en ninguna de las dos ejecuciones.
 
 \textbf{H2 (sin pérdida).} Se cumple. La nube terminó con las 6\,000 lecturas
-producidas en la ejecución \emph{edge}. La línea base perdió 2\,012 (33,5\,\%):
+producidas en la ejecución \emph{edge}. La línea base perdió 2\,009 (33,5\,\%):
 todo lo producido durante los 40\,s de caída.
 
-\textbf{H3 (sin duplicados).} Se cumple. Las cinco pérdidas de ACK inyectadas
-provocaron el reenvío de 263 lecturas que la nube ya tenía; todas fueron
+\textbf{H3 (sin duplicados).} Se cumple. Las diez pérdidas de ACK inyectadas
+provocaron el reenvío de 502 lecturas que la nube ya tenía; todas fueron
 reconocidas como duplicadas y no se almacenó ninguna dos veces.
 
 \textbf{H4 (convergencia).} Se cumple, con un hallazgo de diseño. El
-\emph{backlog} llegó a 2\,448 lecturas y volvió a su nivel normal (p95 de 76
-pendientes con enlace) 9,8\,s después de la reconexión. De ese tiempo, 8,3\,s
+\emph{backlog} llegó a 2\,433 lecturas y volvió a su nivel normal (p95 de 88
+pendientes con enlace) 9,7\,s después de la reconexión. De ese tiempo, 8,1\,s
 transcurrieron antes del primer reintento exitoso, porque el agente estaba en
-la espera máxima del \emph{backoff}; el vaciado como tal tomó cerca de 1,5\,s.
+la espera máxima del \emph{backoff}; el vaciado como tal tomó cerca de 1,6\,s.
 El tope del \emph{backoff} es, por tanto, el parámetro que domina la
 convergencia. Un sondeo liviano del enlace mientras se espera reduciría ese
 tiempo sin volver a saturar la red.
 
-\textbf{H5 (auditoría).} Se cumple. La cadena de 115 entradas se verificó
-íntegra. Al alterar la entrada 57 en una copia de la base, la verificación la
-señaló como la primera entrada inválida.
+\textbf{H5 (auditoría).} Se cumple. La cadena de 116 entradas se verificó
+íntegra. Al alterar la entrada 58 en una copia de la base, la verificación la
+señaló como la primera entrada inválida. La cadena la escribe el nodo
+\emph{edge} en Java y la verifica un programa independiente en Python, lo que
+confirma además que el formato es reproducible fuera del sistema que lo genera.
 
 \textbf{Capacidad.} Con 500 mensajes por segundo el \emph{edge} procesó las
 20\,000 lecturas sin acumular cola, con un tiempo de procesamiento por mensaje
-de 0,17\,ms (p95) y 0,6\,ms (p99), una latencia de alerta p95 de 6\,ms y todos
-los episodios detectados.
+de 0,26\,ms (p95) y 0,52\,ms (p99), una latencia de alerta p95 de 6,4\,ms y
+todos los episodios detectados.
+
+\subsection{Validación con la nube desplegada en AWS}
+\label{sec:prototipo-aws}
+
+Para comprobar que los resultados no dependen de la WAN emulada, la API de la
+nube se desplegó en una instancia EC2 de AWS (Amazon Linux 2023, t3.medium,
+región us-east-1, en el AWS Academy Learner Lab). El nodo \emph{edge}, el
+broker, el emulador del enlace y el simulador siguieron en el portátil, que
+hace las veces de puesto de mando municipal. Así, el enlace \emph{edge}--nube
+atraviesa internet de verdad: el emulador queda con latencia y jitter en cero y
+solo se usa para cortar el enlace de forma controlada. El \emph{security group}
+de la instancia admite conexiones únicamente desde la IP pública del puesto de
+mando, y un script de PowerShell enciende la instancia, actualiza esa regla y
+levanta el entorno local en cada sesión, porque el laboratorio apaga la
+instancia y cambia su IP al terminar.
+
+La tabla~\ref{tab:resultados-aws} compara el mismo experimento con la WAN
+emulada y con la nube en AWS.
+
+\begin{table}[htbp]
+\centering
+\caption{Mismo experimento con WAN emulada (200\,$\pm$\,80\,ms por sentido) y con
+la nube desplegada en AWS (internet real hasta us-east-1).}
+\label{tab:resultados-aws}
+\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+& \multicolumn{2}{c}{\textbf{Solo nube}} & \multicolumn{2}{c}{\textbf{Edge}} \\
+\cmidrule(lr){2-3}\cmidrule(l){4-5}
+\textbf{Métrica} & \textbf{Emulada} & \textbf{AWS} & \textbf{Emulada} & \textbf{AWS} \\
+\midrule
+Lecturas perdidas (de 6\,000) & 2\,009 & 1\,999 & 0 & 0 \\
+Episodios detectados & 14/24 & 14/24 & 24/24 & 24/24 \\
+Detectados durante la caída & 2/12 & 2/12 & 12/12 & 12/12 \\
+Latencia de alerta p50 (ms) & 380 & 129 & 10,5 & 8 \\
+Latencia de alerta p95 (ms) & 2\,414 & 2\,615 & 42 & 36 \\
+Duplicados almacenados en la nube & 0 & 0 & 0 & 0 \\
+Vaciado del \emph{backlog} (s) & -- & -- & 9,7 & 2,4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Las cinco hipótesis se mantienen con la nube real. La latencia de la línea base
+es menor que con la WAN emulada (mediana de 129\,ms frente a 380\,ms), porque el
+viaje de ida y vuelta real hasta us-east-1 resultó más corto que los 400\,ms
+emulados; aun así es más de un orden de magnitud mayor que la del \emph{edge},
+y la caída le sigue costando un tercio de las lecturas y 10 de los 12
+episodios. El vaciado más rápido del \emph{backlog} no es una mejora del
+sistema: en esa ejecución el primer reintento exitoso llegó 1,7\,s después de
+la reconexión, frente a 8,1\,s, según en qué punto de la espera del
+\emph{backoff} estaba el agente. El hallazgo de H4 sigue vigente.
 
 \subsection{Limitaciones y amenazas a la validez}
 
 \begin{itemize}[leftmargin=*]
-  \item Todo corrió en un solo equipo. La red local entre campo y \emph{edge}
+  \item Las mediciones principales corrieron en un solo equipo; la
+        validación de la sección~\ref{sec:prototipo-aws} llevó la nube a AWS,
+        pero el nodo \emph{edge}, el broker y los dispositivos simulados
+        siguieron en el mismo equipo. La red local entre campo y \emph{edge}
         no tiene latencia; en una red de radio real se sumarían decenas a
         cientos de milisegundos a la latencia del \emph{edge}, que seguiría
         lejos de la línea base y, sobre todo, no dependería de la WAN.
@@ -331,11 +399,17 @@ los episodios detectados.
 
 \subsection{Reproducibilidad}
 
-El código fuente acompaña este documento (carpeta \texttt{prototipo-edge/}).
-\texttt{docker compose up --build} levanta el broker, el nodo \emph{edge}, el
-enlace emulado y la nube. \texttt{docker compose --profile experiment run
---rm experiment} repite el experimento completo y regenera la
+El código fuente acompaña este documento: es un proyecto Maven multimódulo
+cuya raíz contiene el \texttt{pom.xml}, el \emph{wrapper} \texttt{mvnw}, los
+módulos \texttt{shared/}, \texttt{edge-node/} y \texttt{cloud-api/}, y las
+herramientas de prueba en Python. \texttt{mvnw verify} ejecuta las pruebas
+unitarias (JUnit). \texttt{docker compose up -{}-build} levanta el broker, el
+nodo \emph{edge}, el enlace emulado y la nube. \texttt{docker compose -{}-profile
+experiment run -{}-rm experiment} repite el experimento completo y regenera la
 tabla~\ref{tab:resultados} y las figuras~\ref{fig:latencia}
-y~\ref{fig:timeline}. Sin Docker, \texttt{python scripts/run\_local\_stack.py}
-levanta los mismos servicios como procesos locales. El tablero del COP local
-queda en \texttt{http://localhost:8080}.
+y~\ref{fig:timeline}. Sin Docker, \texttt{mvnw package} seguido de
+\texttt{python scripts/run\_local\_stack.py} levanta los mismos servicios como
+procesos locales. Con la nube en AWS, \texttt{scripts/aws-up.ps1} enciende la
+instancia y levanta el resto con \texttt{docker-compose.aws.yml}; el
+procedimiento está en \texttt{docs/aws/despliegue-aws.md}. El tablero del COP
+local queda en \texttt{http://localhost:8080}.

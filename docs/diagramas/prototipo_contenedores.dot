@@ -18,22 +18,22 @@ digraph prototipo {
   }
 
   subgraph cluster_edge {
-    label="Nodo edge del PMU municipal — CONSTRUIDO"; style="rounded"; color="#2a78d6"; fontcolor="#1c5cab"; penwidth=1.6;
+    label="Nodo edge del PMU municipal — CONSTRUIDO · Spring Boot 3 (Java 21)"; style="rounded"; color="#2a78d6"; fontcolor="#1c5cab"; penwidth=1.6;
     broker   [label=<<b>Broker MQTT</b><br/><font point-size="8.5">Mosquitto · QoS 1</font>>, fillcolor="#dbe9fb", color="#2a78d6"];
-    ingesta  [label=<<b>Ingesta y validación</b><br/><font point-size="8.5">contrato Telemetry (Pydantic)<br/>deduplicación por event_id</font>>, fillcolor="#dbe9fb", color="#2a78d6"];
+    ingesta  [label=<<b>Ingesta y validación</b><br/><font point-size="8.5">Eclipse Paho · contrato Telemetry<br/>deduplicación por event_id</font>>, fillcolor="#dbe9fb", color="#2a78d6"];
     detector [label=<<b>Detector de eventos</b><br/><font point-size="8.5">umbrales por tipo de sensor<br/>+ z-score móvil por dispositivo</font>>, fillcolor="#dbe9fb", color="#2a78d6"];
-    store    [label=<<b>Almacén local + outbox</b><br/><font point-size="8.5">SQLite (WAL)<br/>lecturas, alertas, synced</font>>, shape=cylinder, fillcolor="#dbe9fb", color="#2a78d6"];
+    store    [label=<<b>Almacén local + outbox</b><br/><font point-size="8.5">SQLite (WAL) · Spring JDBC<br/>lecturas, alertas, synced</font>>, shape=cylinder, fillcolor="#dbe9fb", color="#2a78d6"];
     audit    [label=<<b>Bitácora de auditoría</b><br/><font point-size="8.5">append-only, encadenada<br/>con SHA-256</font>>, shape=cylinder, fillcolor="#dbe9fb", color="#2a78d6"];
     sync     [label=<<b>Agente de sincronización</b><br/><font point-size="8.5">lotes · reintento con backoff<br/>marca synced solo con ACK</font>>, fillcolor="#dbe9fb", color="#2a78d6"];
-    cop      [label=<<b>COP local</b><br/><font point-size="8.5">FastAPI + SSE<br/>tablero de alertas</font>>, fillcolor="#dbe9fb", color="#2a78d6"];
+    cop      [label=<<b>COP local</b><br/><font point-size="8.5">Spring MVC + SSE<br/>tablero de alertas</font>>, fillcolor="#dbe9fb", color="#2a78d6"];
   }
 
-  wan [label=<<b>Enlace WAN</b><br/><font point-size="8.5">EMULADO · proxy TCP<br/>latencia 200±80 ms por sentido<br/>corte controlado del enlace</font>>,
+  wan [label=<<b>Enlace WAN</b><br/><font point-size="8.5">EMULADO · proxy TCP<br/>latencia 200±80 ms por sentido<br/>(con AWS: internet real)<br/>corte controlado del enlace</font>>,
        fillcolor="#eef1f4", color="#9aa5ae", style="rounded,filled,dashed"];
 
   subgraph cluster_nube {
-    label="Nube nacional — CONSTRUIDA (mínima)"; style="rounded"; color="#2a78d6"; fontcolor="#1c5cab"; penwidth=1.6;
-    api   [label=<<b>API central</b><br/><font point-size="8.5">FastAPI<br/>POST /api/v1/sync (idempotente)<br/>POST /api/v1/ingest (línea base)</font>>, fillcolor="#dbe9fb", color="#2a78d6"];
+    label="Nube nacional — CONSTRUIDA (mínima) · local o AWS EC2"; style="rounded"; color="#2a78d6"; fontcolor="#1c5cab"; penwidth=1.6;
+    api   [label=<<b>API central</b><br/><font point-size="8.5">Spring Boot 3 (Java 21)<br/>POST /api/v1/sync (idempotente)<br/>POST /api/v1/ingest (línea base)</font>>, fillcolor="#dbe9fb", color="#2a78d6"];
     dbn   [label=<<b>Base consolidada</b><br/><font point-size="8.5">SQLite · PK event_id</font>>, shape=cylinder, fillcolor="#dbe9fb", color="#2a78d6"];
   }
 

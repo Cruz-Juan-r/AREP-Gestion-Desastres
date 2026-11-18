@@ -67,14 +67,16 @@ trazables durante la respuesta a emergencias. La arquitectura se documenta con
 el modelo C4 --- contexto, contenedores, componentes y despliegue --- junto con
 las decisiones arquitectónicas que la sustentan y su trazabilidad con las capas
 de arquitectura empresarial. A partir de ella se delimita y construye un
-prototipo del nodo \emph{edge} municipal: ingesta IoT por MQTT, detección de
-eventos y alertas en tiempo real, almacenamiento local con patrón
-\emph{outbox}, sincronización idempotente con la nube y auditoría encadenada.
+prototipo del nodo \emph{edge} municipal, implementado en Java con Spring Boot:
+ingesta IoT por MQTT, detección de eventos y alertas en tiempo real,
+almacenamiento local con patrón \emph{outbox}, sincronización idempotente con
+la nube y auditoría encadenada.
 En un escenario simulado de 6\,000 lecturas con una caída de 40\,s del enlace,
-el nodo \emph{edge} mantuvo una latencia de alerta p95 de 23\,ms, detectó los
+el nodo \emph{edge} mantuvo una latencia de alerta p95 de 42\,ms, detectó los
 24 episodios planteados y no perdió ni duplicó lecturas, mientras que una línea
 base solo nube perdió el 33,5\,\% de las lecturas y 10 de los 12 episodios
-ocurridos durante la caída.
+ocurridos durante la caída. Los resultados se mantuvieron al desplegar la nube
+en AWS, con el enlace sobre internet real.
 \end{abstract}
 
 \tableofcontents
@@ -645,7 +647,10 @@ Recursos limitados          & Priorización por impacto & Mejor asignación \\
 
 \begin{enumerate}[leftmargin=*]
   \item Llevar el prototipo a varios nodos \emph{edge} sincronizando a la vez,
-        con resolución de conflictos y despliegue en la nube (AWS).
+        con resolución de conflictos. La nube ya se desplegó en una instancia
+        EC2 de AWS (sección~\ref{sec:prototipo-aws}); el siguiente paso es
+        reemplazar SQLite por una base gestionada y exponer la API detrás de
+        un balanceador con TLS y autenticación.
   \item Validar el detector con series reales de estaciones hidrometeorológicas
         y sísmicas, e integrar un modelo entrenado en el mismo punto del flujo.
   \item Integrar sistemas nacionales y regionales existentes.
@@ -691,7 +696,8 @@ todas las lecturas y las entregó a la nube sin duplicados al reconectarse. La
 alternativa centralizada perdió un tercio de los datos y casi todas las
 alertas de la caída. El experimento también mostró que el tope del
 \emph{backoff} domina el tiempo de convergencia, un parámetro que la
-arquitectura debe ajustar de forma explícita.
+arquitectura debe ajustar de forma explícita. Con la nube desplegada en AWS y
+el enlace sobre internet real, las conclusiones se mantuvieron.
 
 La tesis central es que una respuesta moderna a desastres debe entenderse como
 un sistema de sistemas. La combinación de Arquitectura Empresarial,
