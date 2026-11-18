@@ -1,0 +1,17 @@
+\begin{tabularx}{\textwidth}{@{}Lrr@{}}
+\toprule
+\textbf{Métrica} & \textbf{Solo nube} & \textbf{Edge} \\
+\midrule
+Lecturas generadas & 6\,000 & 6\,000 \\
+Lecturas perdidas & 1\,999 (33.3 \%) & 0 (0.0 \%) \\
+Episodios detectados (recall) & 14/24 (0.58) & 24/24 (1.00) \\
+Episodios detectados durante la caída & 2/12 & 12/12 \\
+Precisión de las alertas & 1.00 & 1.00 \\
+Latencia de alerta p50 (ms) & 129 & 8 \\
+Latencia de alerta p95 (ms) & 2\,615 & 36 \\
+Duplicados almacenados en la nube & 0 & 0 \\
+Reenvíos rechazados por idempotencia & -- & 650 \\
+Backlog máximo en edge (lecturas) & -- & 2\,108 \\
+Vaciado del backlog tras reconectar (s) & -- & 2.4 \\
+\bottomrule
+\end{tabularx}

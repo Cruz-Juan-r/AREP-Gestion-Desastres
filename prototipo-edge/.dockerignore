@@ -9,3 +9,5 @@ results/
 .idea/
 *.iml
 docs/
+.env*
+*.pem

@@ -1,0 +1,87 @@
+# Despliegue híbrido: la nube (cloud-api) corre en una EC2 de AWS y el resto en el portátil,
+# que hace de puesto de mando municipal. El enlace edge -> nube pasa por internet real.
+#
+#   powershell -File scripts/aws-up.ps1          # enciende la EC2, escribe .env.aws y levanta esto
+#   docker compose -f docker-compose.aws.yml --profile demo up -d simulator
+#   docker compose -f docker-compose.aws.yml --profile experiment run --rm experiment
+#
+# La IP pública de la EC2 llega en CLOUD_HOST desde .env.aws (lo genera aws-up.ps1 y NO se
+# versiona). Se lee con env_file y se expande dentro del contenedor ($$CLOUD_HOST), así que
+# no hace falta pasar --env-file a docker compose.
+#
+# Es un proyecto aparte (name) del docker-compose.yml local: no comparte contenedores ni
+# volúmenes con él, pero sí los puertos 1883/8080/9000/9100, así que no corren a la vez.
+name: prototipo-edge-aws
+
+services:
+  broker:                       # campo -> edge (red local del municipio)
+    image: eclipse-mosquitto:2
+    ports: ["1883:1883"]
+    volumes:
+      - ./docker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  wan:                          # enlace municipio -> nube en AWS
+    # Latencia y jitter emulados en 0: la latencia ahora es la real de internet.
+    # Se conserva el proxy para poder cortar el enlace en la demo (POST :9100/link?up=0).
+    build:
+      context: .
+      dockerfile: Dockerfile.tools
+    image: prototipo-edge/tools
+    env_file: [.env.aws]
+    command:
+      - sh
+      - -c
+      - exec python -m wan.proxy --listen 9000 --upstream "$$CLOUD_HOST:8000" --control 9100 --latency-ms 0 --jitter-ms 0
+    ports: ["9000:9000", "9100:9100"]
+
+  edge:                         # nodo edge del PMU - Spring Boot
+    build:
+      context: .
+      dockerfile: edge-node/Dockerfile
+    image: prototipo-edge/edge-node
+    environment:
+      MQTT_HOST: broker
+      CLOUD_URL: http://wan:9000
+      EDGE_DB: /data/edge.db
+      NODE_ID: pmu-municipio-01
+    volumes: [edge-data:/data]
+    depends_on: [broker, wan]
+    ports: ["8080:8080"]
+
+  simulator:                    # dispositivos de campo (demo continua)
+    build:
+      context: .
+      dockerfile: Dockerfile.tools
+    image: prototipo-edge/tools
+    profiles: ["demo"]
+    command: python -m simulator.simulator --mode mqtt --duration 600 --mqtt-host broker
+    depends_on: [edge]
+
+  experiment:                   # experimento edge vs solo nube, contra la nube en AWS
+    # Mismo código del experimento; solo cambian los argumentos: --cloud apunta a la EC2,
+    # latencia/jitter emulados en 0 y la salida va a results-aws/ (results/ no se toca).
+    build:
+      context: .
+      dockerfile: Dockerfile.tools
+    image: prototipo-edge/tools
+    profiles: ["experiment"]
+    env_file: [.env.aws]
+    command:
+      - sh
+      - -c
+      - >-
+        exec python -m experiment.run_experiment
+        --edge http://edge:8080 --cloud "http://$$CLOUD_HOST:8000"
+        --wan-data http://wan:9000 --wan-control http://wan:9100
+        --latency 0 --jitter 0
+        --mqtt-host broker --edge-db /edge-data/edge.db --out /app/results-aws
+    volumes:
+      - edge-data:/edge-data
+      - ./results-aws:/app/results-aws
+    # tamper_test() copies the edge DB to the fixed path /app/results/edge_tamper_copy.db and
+    # deletes it afterwards; an in-memory dir provides that path without touching ./results.
+    tmpfs: [/app/results]
+    depends_on: [edge]
+
+volumes:
+  edge-data:

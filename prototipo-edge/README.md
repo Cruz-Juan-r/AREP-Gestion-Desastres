@@ -64,8 +64,10 @@ simulator/   dispositivos de campo y escenario con verdad de terreno          [P
 experiment/  experimento, métricas, figuras y tabla LaTeX                     [Python]
 contracts/   JSON Schema, OpenAPI y tópicos MQTT
 docker/      configuración de Mosquitto
-docs/        diagrama de contenedores del prototipo (Graphviz)
-scripts/     arranque local sin Docker
+docs/        diagrama de contenedores del prototipo (Graphviz) y despliegue en AWS (docs/aws/)
+scripts/     arranque local sin Docker (run_local_stack.py) y despliegue en AWS (aws-up.ps1, aws-down.ps1)
+results-aws/ resultados del experimento con la nube en AWS
+docker-compose.aws.yml           stack del portátil cuando la nube corre en EC2
 Dockerfile.tools                 imagen Python de las herramientas de prueba
 edge-node/Dockerfile, cloud-api/Dockerfile   imágenes Java (construcción multietapa)
 ```
@@ -108,6 +110,29 @@ pueden arrancar desde IntelliJ: abra `pom.xml` como proyecto y ejecute
 `EdgeNodeApplication` y `CloudApiApplication`. Las variables de entorno son las
 mismas de la versión anterior: `MQTT_HOST`, `MQTT_PORT`, `CLOUD_URL`, `EDGE_DB`
 y `NODE_ID` para el edge; `CLOUD_DB` y `FAULT_ACK_LOSS` para la nube.
+
+### Opción C: nube en AWS (EC2) y edge en el portátil
+
+La API de la nube corre en una instancia EC2 del AWS Academy Learner Lab
+(`arep-sngrd-cloud`) y el portátil hace de puesto de mando municipal: broker, edge,
+emulador WAN y simulador siguen en Docker local, y el enlace edge → nube pasa por
+internet real. Detalle completo, recursos creados y resultados en
+[`docs/aws/despliegue-aws.md`](docs/aws/despliegue-aws.md).
+
+Cada día de uso (con el lab iniciado y las credenciales del lab copiadas en
+`%USERPROFILE%\.aws\credentials`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\aws-up.ps1 -Demo   # enciende la EC2, escribe .env.aws y levanta docker-compose.aws.yml
+docker compose -f docker-compose.aws.yml --profile experiment run --rm experiment   # experimento -> results-aws/
+powershell -ExecutionPolicy Bypass -File scripts\aws-down.ps1 -Local                # apaga la EC2 (sin borrarla) y el stack local
+```
+
+`docker-compose.aws.yml` no levanta `cloud`; `wan` reenvía a `CLOUD_HOST:8000` (la IP
+de la EC2, que `aws-up.ps1` escribe en `.env.aws`) con latencia emulada en 0, y sigue
+permitiendo cortar el enlace con `POST http://localhost:9100/link?up=0`. El stack 100 %
+local y el de AWS usan los mismos puertos, así que no corren a la vez (`aws-up.ps1`
+detiene el local). `.env.aws`, el `.pem` y las credenciales no se versionan.
 
 ## Pruebas unitarias
 

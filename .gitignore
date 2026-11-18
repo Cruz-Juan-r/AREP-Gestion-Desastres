@@ -12,3 +12,9 @@ logs/
 *.db-*
 .idea/
 *.iml
+
+# AWS: nunca versionar la IP de la EC2, llaves ni credenciales
+.env.aws
+*.pem
+*.ppk
+credentials
