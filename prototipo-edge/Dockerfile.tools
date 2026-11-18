@@ -1,0 +1,14 @@
+# Python test tools of the prototype (unchanged code): WAN emulator, field simulator
+# and experiment. docker-compose picks the command. The edge node and the cloud API
+# are Java images (edge-node/Dockerfile, cloud-api/Dockerfile).
+# Python 3.13: experiment/run_experiment.py's Sampler thread stores an Event in
+# self._stop, which shadows Thread._stop() and breaks join() on Python <= 3.12.
+FROM python:3.13-slim
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 PYTHONPATH=/app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY common ./common
+COPY wan ./wan
+COPY simulator ./simulator
+COPY experiment ./experiment

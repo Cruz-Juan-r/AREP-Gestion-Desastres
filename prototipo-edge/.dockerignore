@@ -1,0 +1,11 @@
+**/target/
+**/__pycache__/
+**/*.pyc
+data/
+logs/
+results/
+*.db
+*.db-*
+.idea/
+*.iml
+docs/

@@ -1,0 +1,73 @@
+@startuml c4_l2_contenedores
+!include <C4/C4_Container>
+
+title Nivel 2 - Diagrama de Contenedores\nPlataforma de Gestión de Respuesta a Desastres
+
+Person(coordinador, "Coordinador de emergencia", "Prioriza, decide y autoriza")
+Person(analista, "Analista de riesgo y daños", "Valida las evaluaciones de la IA")
+Person(campo, "Organismo de socorro en campo", "Reporta y ejecuta la misión")
+
+System_Boundary(plataforma, "Plataforma de Gestión de Respuesta a Desastres") {
+
+ Container_Boundary(capa_pres, "Capa de presentación y acceso") {
+  Container(cop, "Common Operating Picture", "Aplicación web (SPA + mapa)", "Panorama común: situación, zonas críticas, recursos, rutas propuestas y decisiones")
+  Container(móvil, "App de campo offline-first", "App móvil", "Reportes, evaluación en sitio y órdenes de misión; opera sin conectividad y sincroniza después")
+  Container(gateway, "API Gateway y autenticación", "API Gateway, OAuth2/OIDC", "Punto único de entrada: autenticación, autorización por rol y entidad, y control de cuotas")
+
+ }
+
+ Container_Boundary(capa_svc, "Capa de servicios de la plataforma") {
+  Container(interop, "Motor de interoperabilidad", "Servicio de integración, ESB + bus de eventos", "Recibe, normaliza, valida, georreferencia y distribuye la información de las entidades")
+  Container(gis_svc, "Servicio geoespacial", "Servicio + servidor de mapas", "Capas de vías, población, infraestructura crítica y análisis territorial")
+  Container(ia_svc, "Servicio de evaluación de daños (IA)", "Servicio de inferencia, Python", "Detecta edificaciones dañadas, clasifica zonas y estima impacto preliminar a partir de imágenes")
+  Container(opt_svc, "Motor de optimización logística", "Servicio + solver de Investigación de Operaciones", "Asignación de recursos, ruteo, distribución de suministros y priorización de zonas")
+  Container(rec_svc, "Gestión de recursos e inventarios", "Servicio de aplicación", "Bodegas, suministros, vehículos, personal y estado de las misiones")
+  Container(gob_svc, "Servicio de gobernanza y auditoría", "Servicio de aplicación", "Registra quién decidió, cuándo, con qué información, con qué justificación y con qué resultado")
+  Container(sync, "Servicio de sincronización edge", "Servicio de replicación", "Reconciliación de datos de nodos locales y dispositivos tras la desconexión")
+
+ }
+
+ Container_Boundary(capa_datos, "Capa de datos") {
+  ContainerDb(db_op, "Base de datos operacional", "PostgreSQL + PostGIS", "Eventos, zonas, necesidades, recursos, misiones y decisiones georreferenciadas")
+  ContainerDb(lake, "Repositorio de imágenes y sensores", "Almacenamiento de objetos", "Imágenes satelitales, vuelos de dron y series de sensores")
+  ContainerDb(bus, "Bus de eventos", "Middleware de mensajería", "Eventos de emergencia, actualizaciones de estado y notificaciones entre servicios")
+  ContainerDb(audit, "Almacén de auditoría", "Registro append-only", "Traza inmutable de decisiones y movimientos de recursos")
+ }
+}
+
+System_Ext(fuentes, "Fuentes externas", "SNIGRD, Copernicus, IDEAM, IGAC/DANE, salud, inventarios de entidades")
+System_Ext(sensores, "Drones y sensores IoT", "Telemetría e imágenes de campo")
+
+Rel(coordinador, cop, "Consulta, prioriza y autoriza", "HTTPS")
+Rel(analista, cop, "Revisa y ajusta evaluaciones", "HTTPS")
+Rel(campo, móvil, "Reporta necesidades y estado", "HTTPS / almacenamiento local")
+
+Rel(cop, gateway, "Consume servicios", "JSON/HTTPS")
+Rel(móvil, gateway, "Sincroniza cuando hay conectividad", "JSON/HTTPS")
+
+Rel(gateway, interop, "Enruta peticiones de integración", "JSON/HTTPS")
+Rel(gateway, gis_svc, "Solicita capas y análisis", "JSON/HTTPS")
+Rel(gateway, opt_svc, "Solicita escenarios de asignación y rutas", "JSON/HTTPS")
+Rel(gateway, rec_svc, "Consulta y actualiza recursos", "JSON/HTTPS")
+Rel(gateway, gob_svc, "Registra y consulta decisiones", "JSON/HTTPS")
+
+Rel(interop, bus, "Publica eventos normalizados", "Mensajería")
+Rel(ia_svc, bus, "Publica evaluaciones preliminares", "Mensajería")
+Rel(bus, opt_svc, "Dispara recálculo de asignaciones", "Mensajería")
+Rel(bus, cop, "Notifica cambios de situación", "WebSocket")
+
+Rel(interop, db_op, "Escribe datos normalizados", "SQL")
+Rel(interop, lake, "Almacena imágenes y series", "Objetos")
+Rel(ia_svc, lake, "Lee imágenes para inferencia", "Objetos")
+Rel(gis_svc, db_op, "Consulta y escribe geometrías", "SQL/PostGIS")
+Rel(opt_svc, db_op, "Lee demanda y recursos; escribe propuestas", "SQL")
+Rel(rec_svc, db_op, "Lee y escribe inventarios y misiones", "SQL")
+Rel(gob_svc, audit, "Registra la traza de decisiones", "Append-only")
+Rel(sync, db_op, "Reconcilia datos de nodos locales", "SQL")
+Rel(móvil, sync, "Envía cola de cambios locales", "JSON/HTTPS")
+
+Rel(interop, fuentes, "Consume y publica información", "API / eventos / archivos")
+Rel(sensores, interop, "Envía telemetría e imágenes", "MQTT / carga")
+
+SHOW_LEGEND()
+@enduml

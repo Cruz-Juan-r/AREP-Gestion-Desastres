@@ -1,0 +1,28 @@
+# Edge node (PMU). Environment variables keep the names of the Python prototype.
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: edge-node
+  main:
+    banner-mode: off
+
+edge:
+  node-id: ${NODE_ID:pmu-municipio-01}
+  mqtt-host: ${MQTT_HOST:localhost}
+  mqtt-port: ${MQTT_PORT:1883}
+  cloud-url: ${CLOUD_URL:http://localhost:9000}
+  db: ${EDGE_DB:edge.db}
+  sync:
+    batch-events: 500
+    batch-alerts: 200
+    idle-ms: 500
+    backoff-min-ms: 500
+    backoff-max-ms: 8000
+    timeout-ms: 5000
+
+logging:
+  level:
+    root: WARN
+    edu.eci.arep.sngrd: INFO

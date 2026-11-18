@@ -1,0 +1,75 @@
+# Prototipo: nodo edge del PMU con alertas en tiempo real y sincronización resiliente.
+#   docker compose up --build -d                              # levanta el sistema
+#   docker compose --profile experiment run --rm experiment   # corre el experimento
+# Dashboard del nodo edge: http://localhost:8080   API nube: http://localhost:8000/docs
+#
+# edge y cloud: Spring Boot 3 (Java 21). broker: Mosquitto.
+# wan, simulator y experiment: herramientas de prueba en Python (Dockerfile.tools).
+services:
+  broker:                       # campo -> edge (red local del municipio)
+    image: eclipse-mosquitto:2
+    ports: ["1883:1883"]
+    volumes:
+      - ./docker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  cloud:                        # nube nacional (mínima) - Spring Boot
+    build:
+      context: .
+      dockerfile: cloud-api/Dockerfile
+    image: prototipo-edge/cloud-api
+    environment:
+      CLOUD_DB: /data/cloud.db
+    volumes: [cloud-data:/data]
+    ports: ["8000:8000"]
+
+  wan:                          # enlace municipio <-> nube (emulado) - Python
+    build:
+      context: .
+      dockerfile: Dockerfile.tools
+    image: prototipo-edge/tools
+    command: python -m wan.proxy --listen 9000 --upstream cloud:8000 --control 9100 --latency-ms 200 --jitter-ms 80
+    depends_on: [cloud]
+    ports: ["9000:9000", "9100:9100"]
+
+  edge:                         # nodo edge del PMU - Spring Boot
+    build:
+      context: .
+      dockerfile: edge-node/Dockerfile
+    image: prototipo-edge/edge-node
+    environment:
+      MQTT_HOST: broker
+      CLOUD_URL: http://wan:9000
+      EDGE_DB: /data/edge.db
+      NODE_ID: pmu-municipio-01
+    volumes: [edge-data:/data]
+    depends_on: [broker, wan]
+    ports: ["8080:8080"]
+
+  simulator:                    # dispositivos de campo (demo continua) - Python
+    build:
+      context: .
+      dockerfile: Dockerfile.tools
+    image: prototipo-edge/tools
+    profiles: ["demo"]
+    command: python -m simulator.simulator --mode mqtt --duration 600 --mqtt-host broker
+    depends_on: [edge]
+
+  experiment:                   # experimento edge vs solo nube - Python
+    build:
+      context: .
+      dockerfile: Dockerfile.tools
+    image: prototipo-edge/tools
+    profiles: ["experiment"]
+    command: >
+      python -m experiment.run_experiment
+      --edge http://edge:8080 --cloud http://cloud:8000
+      --wan-data http://wan:9000 --wan-control http://wan:9100
+      --mqtt-host broker --edge-db /edge-data/edge.db --out /app/results
+    volumes:
+      - edge-data:/edge-data
+      - ./results:/app/results
+    depends_on: [edge]
+
+volumes:
+  cloud-data:
+  edge-data:

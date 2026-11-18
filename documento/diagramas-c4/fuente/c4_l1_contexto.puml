@@ -1,0 +1,37 @@
+@startuml c4_l1_contexto
+!include <C4/C4_Context>
+
+title Nivel 1 - Diagrama de Contexto\nSistema Nacional/Regional de Gestión de Respuesta a Desastres y Asignación Resiliente de Recursos
+
+Person(coordinador, "Coordinador de emergencia", "UNGRD / PMU: prioriza zonas, autoriza asignaciones y ordena la operación")
+Person(analista, "Analista de riesgo y daños", "Valida las evaluaciones preliminares generadas por IA sobre imágenes y reportes")
+Person(campo, "Organismo de socorro en campo", "Bomberos, Defensa Civil, Cruz Roja: reporta necesidades y ejecuta la misión")
+Person(territorial, "Autoridad territorial", "Gobernaciones y alcaldías: consultan la situación y solicitan recursos")
+Person(auditor, "Auditor / Control", "Reconstruye decisiones y verifica el uso de recursos públicos")
+
+System(plataforma, "Plataforma de Gestión de Respuesta a Desastres", "System of Systems que integra datos, IA, optimización logística, mando y control, gobernanza y auditoría para la respuesta interinstitucional")
+
+System_Ext(snigrd, "SNIGRD / UNGRD", "Sistema Nacional de Información para la Gestión del Riesgo de Desastres")
+System_Ext(eo, "Observacion de la Tierra", "Copernicus EMS, Landsat, Sentinel: imágenes satelitales ópticas y SAR")
+System_Ext(meteo, "Servicios meteorológicos e hidrológicos", "IDEAM y estaciones: alertas, pronósticos y niveles")
+System_Ext(gis, "Cartografía y censos", "IGAC, DANE: vías, infraestructura crítica y población")
+System_Ext(salud, "Sistemas de salud", "Hospitales y red de urgencias: capacidad y disponibilidad")
+System_Ext(inventarios, "Sistemas de inventarios y flota", "Entidades y operadores logísticos: bodegas, suministros y vehículos")
+System_Ext(drones, "Drones y sensores IoT", "Sensores en campo e imágenes de alta resolución")
+
+Rel(coordinador, plataforma, "Consulta el panorama común, prioriza y autoriza asignaciones", "Web / HTTPS")
+Rel(analista, plataforma, "Revisa y ajusta las evaluaciones de daño", "Web / HTTPS")
+Rel(campo, plataforma, "Reporta necesidades y estado de la misión", "App móvil offline-first")
+Rel(territorial, plataforma, "Consulta la situación y solicita recursos", "Web / HTTPS")
+Rel(auditor, plataforma, "Reconstruye la traza de decisiones y recursos", "Web / HTTPS")
+
+Rel(plataforma, snigrd, "Intercambia eventos, emergencias y reportes oficiales", "API / eventos")
+Rel(plataforma, eo, "Solicita y descarga imágenes del área afectada", "API")
+Rel(plataforma, meteo, "Recibe alertas y pronósticos", "API / suscripción")
+Rel(plataforma, gis, "Obtiene capas de vías, población e infraestructura", "WMS / WFS")
+Rel(plataforma, salud, "Consulta capacidad hospitalaria", "API / HL7-FHIR")
+Rel(plataforma, inventarios, "Sincroniza inventarios, bodegas y vehículos", "API / archivos")
+Rel(drones, plataforma, "Envia telemetría e imágenes de campo", "MQTT / carga de archivos")
+
+SHOW_LEGEND()
+@enduml

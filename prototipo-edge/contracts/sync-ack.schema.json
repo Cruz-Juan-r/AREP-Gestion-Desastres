@@ -1,0 +1,33 @@
+{
+  "properties": {
+    "batch_id": {
+      "title": "Batch Id",
+      "type": "string"
+    },
+    "events_accepted": {
+      "title": "Events Accepted",
+      "type": "integer"
+    },
+    "events_duplicated": {
+      "title": "Events Duplicated",
+      "type": "integer"
+    },
+    "alerts_accepted": {
+      "title": "Alerts Accepted",
+      "type": "integer"
+    },
+    "alerts_duplicated": {
+      "title": "Alerts Duplicated",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "batch_id",
+    "events_accepted",
+    "events_duplicated",
+    "alerts_accepted",
+    "alerts_duplicated"
+  ],
+  "title": "SyncAck",
+  "type": "object"
+}

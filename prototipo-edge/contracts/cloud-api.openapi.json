@@ -1,0 +1,496 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Nube nacional - prototipo",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/sync": {
+      "post": {
+        "summary": "Sync",
+        "operationId": "sync_api_v1_sync_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncBatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncAck"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ingest": {
+      "post": {
+        "summary": "Ingest",
+        "description": "Cloud-only baseline: detection happens here, far from the field.",
+        "operationId": "ingest_api_v1_ingest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Telemetry"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/stats": {
+      "get": {
+        "summary": "Stats",
+        "operationId": "stats_api_v1_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/ids": {
+      "get": {
+        "summary": "Event Ids",
+        "description": "Used by the experiment to compare what was sent with what arrived.",
+        "operationId": "event_ids_api_v1_events_ids_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/reset": {
+      "post": {
+        "summary": "Reset",
+        "operationId": "reset_admin_reset_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/fault": {
+      "post": {
+        "summary": "Set Fault",
+        "operationId": "set_fault_admin_fault_post",
+        "parameters": [
+          {
+            "name": "ack_loss",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "title": "Ack Loss"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Alert": {
+        "properties": {
+          "alert_id": {
+            "type": "string",
+            "title": "Alert Id"
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "device_id": {
+            "type": "string",
+            "title": "Device Id"
+          },
+          "sensor_type": {
+            "type": "string",
+            "enum": [
+              "river_level",
+              "rainfall",
+              "seismic",
+              "drone"
+            ],
+            "title": "Sensor Type"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "warning",
+              "critical"
+            ],
+            "title": "Severity"
+          },
+          "rule": {
+            "type": "string",
+            "enum": [
+              "threshold",
+              "zscore"
+            ],
+            "title": "Rule"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score",
+            "description": "Threshold ratio or |z| that triggered the alert"
+          },
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "ts_event_ms": {
+            "type": "integer",
+            "title": "Ts Event Ms"
+          },
+          "ts_alert_ms": {
+            "type": "integer",
+            "title": "Ts Alert Ms"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "edge",
+              "cloud"
+            ],
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "device_id",
+          "sensor_type",
+          "severity",
+          "rule",
+          "value",
+          "score",
+          "lat",
+          "lon",
+          "ts_event_ms",
+          "ts_alert_ms",
+          "source"
+        ],
+        "title": "Alert",
+        "description": "Alert produced by the detector (MQTT topic alerts/{severity}/{device})."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "IngestResponse": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "duplicated": {
+            "type": "boolean",
+            "title": "Duplicated"
+          },
+          "alert": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Alert"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "duplicated"
+        ],
+        "title": "IngestResponse",
+        "description": "Cloud-only baseline: the device sends a reading and gets the alert back."
+      },
+      "SyncAck": {
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "title": "Batch Id"
+          },
+          "events_accepted": {
+            "type": "integer",
+            "title": "Events Accepted"
+          },
+          "events_duplicated": {
+            "type": "integer",
+            "title": "Events Duplicated"
+          },
+          "alerts_accepted": {
+            "type": "integer",
+            "title": "Alerts Accepted"
+          },
+          "alerts_duplicated": {
+            "type": "integer",
+            "title": "Alerts Duplicated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "batch_id",
+          "events_accepted",
+          "events_duplicated",
+          "alerts_accepted",
+          "alerts_duplicated"
+        ],
+        "title": "SyncAck"
+      },
+      "SyncBatch": {
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          },
+          "batch_id": {
+            "type": "string",
+            "title": "Batch Id"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/Telemetry"
+            },
+            "type": "array",
+            "title": "Events",
+            "default": []
+          },
+          "alerts": {
+            "items": {
+              "$ref": "#/components/schemas/Alert"
+            },
+            "type": "array",
+            "title": "Alerts",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "node_id"
+        ],
+        "title": "SyncBatch",
+        "description": "Edge -> cloud synchronisation request (POST /api/v1/sync)."
+      },
+      "Telemetry": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "title": "Event Id",
+            "description": "Globally unique id; idempotency key end to end"
+          },
+          "device_id": {
+            "type": "string",
+            "title": "Device Id"
+          },
+          "sensor_type": {
+            "type": "string",
+            "enum": [
+              "river_level",
+              "rainfall",
+              "seismic",
+              "drone"
+            ],
+            "title": "Sensor Type"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "seq": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Seq",
+            "description": "Per-device sequence number"
+          },
+          "ts_ms": {
+            "type": "integer",
+            "title": "Ts Ms",
+            "description": "Capture time at the device, epoch milliseconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "device_id",
+          "sensor_type",
+          "value",
+          "unit",
+          "lat",
+          "lon",
+          "seq",
+          "ts_ms"
+        ],
+        "title": "Telemetry",
+        "description": "One reading published by a field device (MQTT topic sensors/{type}/{device})."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

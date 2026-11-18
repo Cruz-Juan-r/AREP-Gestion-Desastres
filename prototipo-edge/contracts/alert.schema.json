@@ -1,0 +1,92 @@
+{
+  "description": "Alert produced by the detector (MQTT topic alerts/{severity}/{device}).",
+  "properties": {
+    "alert_id": {
+      "title": "Alert Id",
+      "type": "string"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "device_id": {
+      "title": "Device Id",
+      "type": "string"
+    },
+    "sensor_type": {
+      "enum": [
+        "river_level",
+        "rainfall",
+        "seismic",
+        "drone"
+      ],
+      "title": "Sensor Type",
+      "type": "string"
+    },
+    "severity": {
+      "enum": [
+        "warning",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "rule": {
+      "enum": [
+        "threshold",
+        "zscore"
+      ],
+      "title": "Rule",
+      "type": "string"
+    },
+    "value": {
+      "title": "Value",
+      "type": "number"
+    },
+    "score": {
+      "description": "Threshold ratio or |z| that triggered the alert",
+      "title": "Score",
+      "type": "number"
+    },
+    "lat": {
+      "title": "Lat",
+      "type": "number"
+    },
+    "lon": {
+      "title": "Lon",
+      "type": "number"
+    },
+    "ts_event_ms": {
+      "title": "Ts Event Ms",
+      "type": "integer"
+    },
+    "ts_alert_ms": {
+      "title": "Ts Alert Ms",
+      "type": "integer"
+    },
+    "source": {
+      "enum": [
+        "edge",
+        "cloud"
+      ],
+      "title": "Source",
+      "type": "string"
+    }
+  },
+  "required": [
+    "event_id",
+    "device_id",
+    "sensor_type",
+    "severity",
+    "rule",
+    "value",
+    "score",
+    "lat",
+    "lon",
+    "ts_event_ms",
+    "ts_alert_ms",
+    "source"
+  ],
+  "title": "Alert",
+  "type": "object"
+}

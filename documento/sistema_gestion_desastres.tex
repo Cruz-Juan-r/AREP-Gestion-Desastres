@@ -1,0 +1,735 @@
+% =====================================================================
+%  Sistema Nacional/Regional de Gestion de Respuesta a Desastres
+%  Naturales y Asignacion Resiliente de Recursos
+%  Compilar con:  pdflatex sistema_gestion_desastres.tex  (x2)
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+% Español. Si tu instalación no trae babel-spanish, se usan los rótulos manuales.
+\IfFileExists{spanish.ldf}{%
+  \usepackage[spanish,es-noquoting,es-tabla]{babel}%
+}{%
+  \renewcommand{\contentsname}{Índice}%
+  \renewcommand{\tablename}{Tabla}%
+  \renewcommand{\figurename}{Figura}%
+  \renewcommand{\abstractname}{Resumen}%
+  \renewcommand{\listfigurename}{Índice de figuras}%
+}
+% microtype requiere fuentes escalables (lmodern), por eso van juntos.
+\IfFileExists{lmodern.sty}{%
+  \usepackage{lmodern}%
+  \IfFileExists{microtype.sty}{\usepackage{microtype}}{}%
+}{}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{pdflscape}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{parskip}
+\usepackage[hidelinks]{hyperref}
+
+\hypersetup{
+  pdftitle={Sistema Nacional/Regional de Gestion de Respuesta a Desastres Naturales y Asignacion Resiliente de Recursos},
+  pdfsubject={Arquitectura empresarial y tecnologica para la coordinacion interinstitucional}
+}
+
+% Columna X centrada verticalmente para las tablas
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+
+\title{\textbf{Sistema Nacional/Regional de Gestión de Respuesta a Desastres
+Naturales y Asignación Resiliente de Recursos}\\[0.4em]
+\large\normalfont\itshape Propuesta de arquitectura empresarial y tecnológica
+para la coordinación interinstitucional}
+
+\author{Juan Esteban Cruz \and Deisy Lorena Guzmán \and Sebastián Villarraga \\[0.3em]
+\small Arquitecturas Empresariales (AREP) --- Escuela Colombiana de Ingeniería Julio Garavito}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\noindent
+Los desastres naturales exigen decisiones coordinadas entre múltiples
+organizaciones que operan con sistemas, datos y procedimientos propios.
+Este documento propone una arquitectura empresarial interoperable,
+resiliente y apoyada en inteligencia artificial y optimización matemática,
+concebida como un \emph{System of Systems}, para transformar información
+heterogénea y distribuida en decisiones operativas oportunas, optimizadas y
+trazables durante la respuesta a emergencias. La arquitectura se documenta con
+el modelo C4 --- contexto, contenedores, componentes y despliegue --- junto con
+las decisiones arquitectónicas que la sustentan y su trazabilidad con las capas
+de arquitectura empresarial. A partir de ella se delimita y construye un
+prototipo del nodo \emph{edge} municipal: ingesta IoT por MQTT, detección de
+eventos y alertas en tiempo real, almacenamiento local con patrón
+\emph{outbox}, sincronización idempotente con la nube y auditoría encadenada.
+En un escenario simulado de 6\,000 lecturas con una caída de 40\,s del enlace,
+el nodo \emph{edge} mantuvo una latencia de alerta p95 de 23\,ms, detectó los
+24 episodios planteados y no perdió ni duplicó lecturas, mientras que una línea
+base solo nube perdió el 33,5\,\% de las lecturas y 10 de los 12 episodios
+ocurridos durante la caída.
+\end{abstract}
+
+\tableofcontents
+\listoffigures
+\bigskip
+
+% =====================================================================
+\section{Contexto y problema}
+% =====================================================================
+
+Los desastres naturales generan impactos simultáneos sobre población,
+infraestructura, servicios públicos, vías y actividades económicas.
+Inundaciones, movimientos en masa, incendios forestales, terremotos y
+crecientes súbitas pueden afectar varios municipios al mismo tiempo,
+haciendo insuficiente la capacidad de respuesta de una sola organización.
+
+En Colombia, la gestión del riesgo se desarrolla mediante el Sistema Nacional
+de Gestión del Riesgo de Desastres (SNGRD), que articula entidades públicas,
+privadas y comunitarias. La UNGRD cumple funciones de coordinación. A nivel
+internacional, el Marco de Sendai 2015--2030 plantea como prioridades
+comprender el riesgo, fortalecer la gobernanza, invertir en resiliencia y
+mejorar la preparación y recuperación.
+
+Según los datos utilizados en esta propuesta, durante 2025 se registraron más
+de 4.700 emergencias en 869 municipios y más de 285.100 familias afectadas.
+Estas cifras muestran que la respuesta requiere coordinación a una escala que
+supera a una organización individual.
+
+El problema central no es la ausencia de instituciones o tecnologías, sino la
+dificultad para transformar información heterogénea y distribuida en
+decisiones operativas coordinadas, oportunas, optimizadas y trazables. Durante
+una emergencia participan organismos de socorro, gobiernos, salud, seguridad,
+servicios públicos, organizaciones humanitarias y proveedores logísticos, cada
+uno con sistemas y procedimientos propios.
+
+Esta fragmentación puede producir información duplicada, diferentes niveles de
+actualización, retrasos en la identificación de necesidades, asignaciones
+ineficientes, dificultades para adaptar rutas y problemas para reconstruir
+posteriormente las decisiones. La cadena crítica puede resumirse como:
+
+\begin{center}
+evento $\rightarrow$ detección $\rightarrow$ evaluación $\rightarrow$
+necesidades $\rightarrow$ priorización $\rightarrow$ asignación $\rightarrow$
+logística $\rightarrow$ ejecución $\rightarrow$ seguimiento $\rightarrow$
+auditoría.
+\end{center}
+
+Por ello, la propuesta no se plantea como una aplicación móvil aislada, sino
+como una capacidad transversal de mando, coordinación e integración
+interinstitucional.
+
+% =====================================================================
+\section{Motivación y pregunta de investigación}
+% =====================================================================
+
+\subsection{Motivación}
+
+Cuando ocurre un desastre, conocer dónde ocurrió el evento es solo el primer
+paso. Las autoridades necesitan determinar qué zonas requieren atención
+prioritaria, qué recursos están disponibles, qué rutas permanecen operativas,
+cuánto suministrar y cómo coordinar a los diferentes actores. Estas decisiones
+deben tomarse con información incompleta y cambiante.
+
+Desde la Arquitectura Empresarial, esto representa un problema de alineación
+entre negocio, información, aplicaciones y tecnología. La solución debe
+permitir que las organizaciones mantengan sus capacidades existentes y, al
+mismo tiempo, compartan información y coordinen decisiones mediante servicios
+comunes.
+
+\subsection{Pregunta de investigación}
+
+\begin{quote}
+\itshape
+¿Cómo puede una arquitectura empresarial interoperable, resiliente y apoyada
+en inteligencia artificial y optimización matemática mejorar la coordinación
+interinstitucional y la asignación de recursos durante la respuesta a
+desastres naturales?
+\end{quote}
+
+\subsection{Indicadores}
+
+\begin{itemize}[leftmargin=*]
+  \item Tiempo desde la detección hasta la evaluación.
+  \item Tiempo desde la evaluación hasta la asignación.
+  \item Porcentaje de solicitudes atendidas dentro del tiempo objetivo.
+  \item Kilómetros y costos asociados a las operaciones logísticas.
+  \item Porcentaje de demanda satisfecha y población prioritaria atendida.
+  \item Porcentaje de operaciones que pueden mantenerse con conectividad
+        degradada.
+  \item Porcentaje de decisiones y recursos con trazabilidad completa.
+\end{itemize}
+
+% =====================================================================
+\section{Estado del arte}
+% =====================================================================
+
+La propuesta combina varias líneas de investigación que ya han abordado partes
+del problema. El vacío no está en la inexistencia de soluciones, sino en
+integrarlas dentro de una arquitectura orientada a la operación.
+
+\begin{table}[htbp]
+\centering
+\caption{Líneas de investigación relacionadas, aportes y limitaciones.}
+\label{tab:estado-arte}
+\begin{tabularx}{\textwidth}{@{}p{3.4cm}LL@{}}
+\toprule
+\textbf{Línea} & \textbf{Aporte} & \textbf{Limitación} \\
+\midrule
+Interoperabilidad & Integra organizaciones y sistemas heterogéneos. &
+Requiere estándares y gobernanza. \\
+\addlinespace
+GIS y observación de la Tierra & Representa el impacto territorial. &
+No determina por sí sola la mejor asignación. \\
+\addlinespace
+IA para daños & Acelera la evaluación preliminar. &
+Depende de datos y validación. \\
+\addlinespace
+Logística humanitaria & Optimiza inventarios, localización y distribución. &
+Muchos modelos usan escenarios específicos. \\
+\addlinespace
+Optimización de rutas & Reduce tiempos y costos. &
+Necesita información actualizada. \\
+\addlinespace
+Sistemas resilientes & Mantienen funciones con conectividad limitada. &
+La sincronización es compleja. \\
+\addlinespace
+Gobernanza & Aporta control y transparencia. &
+Debe integrarse a la operación. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Interoperabilidad}
+
+Los estudios sobre gestión de desastres identifican la interoperabilidad, la
+cooperación y la integración tecnológica como retos persistentes. Esto
+respalda una capa común que conecte sistemas existentes sin exigir su
+sustitución inmediata.
+
+\subsection{Información geoespacial}
+
+La observación de la Tierra y los sistemas GIS permiten relacionar el evento
+con población, infraestructura, vías y recursos. Servicios como Copernicus
+Emergency Management Service muestran que esta información ya se utiliza en
+emergencias. El reto adicional es convertirla en decisiones logísticas.
+
+\subsection{Inteligencia artificial}
+
+Los modelos de aprendizaje profundo pueden localizar edificaciones y estimar
+niveles de daño mediante imágenes. Sin embargo, su rendimiento puede variar
+según el desastre, las imágenes disponibles y el territorio. Por ello, la IA
+debe generar evaluaciones preliminares que puedan ser revisadas por los
+responsables.
+
+\subsection{Optimización y logística humanitaria}
+
+La investigación en logística humanitaria aborda localización de centros,
+inventarios, asignación, evacuación y ruteo bajo incertidumbre. La oportunidad
+de esta propuesta está en conectar estos modelos con datos operativos que
+cambian continuamente.
+
+\subsection{Gobernanza}
+
+La respuesta también depende de quién puede decidir, consultar información y
+disponer de recursos. La arquitectura debe incorporar control de acceso,
+trazabilidad, auditoría, responsabilidad y protección de información desde el
+diseño.
+
+% =====================================================================
+\section{Propuesta de solución}
+% =====================================================================
+
+Se propone un Sistema Nacional/Regional de Gestión de Respuesta a Desastres y
+Asignación Resiliente de Recursos, concebido como un \emph{System of Systems}.
+Su objetivo es integrar datos, organizaciones, procesos y capacidades
+tecnológicas para apoyar decisiones coordinadas.
+
+\subsection{Fuentes de información}
+
+La plataforma recibiría información de sensores, estaciones meteorológicas,
+imágenes satelitales, drones, GIS, censos, infraestructura crítica, reportes
+de organismos de socorro, inventarios, vehículos, hospitales, vías y
+pronósticos meteorológicos.
+
+\subsection{Integración e interoperabilidad}
+
+Esta capa actuaría como punto común entre sistemas institucionales. Su flujo
+básico sería: recibir $\rightarrow$ normalizar $\rightarrow$ validar
+$\rightarrow$ georreferenciar $\rightarrow$ distribuir. Se podrían emplear
+APIs, eventos, middleware y estándares de intercambio. El principio
+arquitectónico es integrar antes que reemplazar.
+
+\subsection{Inteligencia y analítica}
+
+La IA apoyaría la detección de daños, clasificación de zonas afectadas,
+estimación preliminar del impacto, identificación de infraestructura crítica y
+generación de alertas. Paralelamente, técnicas de Investigación de Operaciones
+permitirían asignar recursos, seleccionar rutas, distribuir suministros y
+priorizar zonas.
+
+La relación entre componentes sería: la IA genera predicciones; la
+optimización utiliza esas variables para construir alternativas; el
+responsable humano valida, modifica o autoriza la decisión. Así se evita que
+la IA opere como una caja negra para decisiones críticas.
+
+\subsection{Mando y control}
+
+El sistema proporcionaría un \emph{Common Operating Picture}, es decir, una
+representación común de la situación para los actores autorizados. Ante un
+terremoto que afecte tres municipios, por ejemplo, la plataforma podría
+combinar reportes, imágenes, población, hospitales, vías y recursos; estimar
+zonas críticas; proponer rutas y asignaciones; y registrar la decisión
+adoptada.
+
+\subsection{Gobernanza y auditoría}
+
+Cada decisión debería registrar quién decidió, cuándo, con qué información,
+qué recursos se asignaron, cuál fue la justificación y cuál fue el resultado.
+Esto permitiría reconstruir operaciones, identificar desviaciones y evaluar el
+uso de recursos públicos.
+
+% =====================================================================
+\section{Arquitectura empresarial}
+% =====================================================================
+
+\subsection{Arquitectura de negocio}
+
+Define actores, procesos, responsabilidades, servicios y reglas de decisión.
+Entre los actores potenciales se encuentran Gobierno nacional, UNGRD,
+gobernaciones, alcaldías, bomberos, Defensa Civil, Cruz Roja, Policía, Fuerzas
+Militares, sector salud, empresas de servicios públicos, proveedores
+logísticos y organizaciones humanitarias.
+
+\subsection{Arquitectura de información}
+
+El modelo debe integrar eventos, datos geográficos, población, daños,
+inventarios, vehículos, rutas, necesidades, recursos, decisiones y auditoría.
+Cada dato debería conservar origen, fecha de actualización y nivel de
+confianza.
+
+\subsection{Arquitectura de aplicaciones}
+
+\begin{itemize}[leftmargin=*]
+  \item Motor de interoperabilidad.
+  \item Sistema GIS y visualización.
+  \item Módulo de evaluación de daños.
+  \item Módulos de IA y analítica.
+  \item Motor de optimización logística.
+  \item Gestión de inventarios y recursos.
+  \item Sistema de mando y coordinación.
+  \item Auditoría, seguridad y administración.
+\end{itemize}
+
+\subsection{Arquitectura tecnológica}
+
+La arquitectura combinaría infraestructura distribuida, servicios cloud,
+\emph{edge computing}, nodos locales, procesamiento de imágenes y
+sincronización. Un enfoque \emph{offline-first} permitiría mantener funciones
+esenciales cuando falle la conectividad y sincronizar después.
+
+\subsection{Flujo de decisión}
+
+\begin{table}[htbp]
+\centering
+\caption{Etapas del flujo de decisión y su función.}
+\label{tab:flujo}
+\begin{tabularx}{0.9\textwidth}{@{}p{3.4cm}L@{}}
+\toprule
+\textbf{Etapa} & \textbf{Función} \\
+\midrule
+Detección     & Recibir alertas, sensores y reportes. \\
+Evaluación    & Estimar daños, población e infraestructura. \\
+Priorización  & Clasificar zonas por impacto y urgencia. \\
+Optimización  & Proponer recursos y rutas. \\
+Decisión      & Validar y autorizar. \\
+Ejecución     & Coordinar recursos. \\
+Seguimiento   & Actualizar estado y necesidades. \\
+Auditoría     & Registrar decisiones y resultados. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% =====================================================================
+\section{Vista arquitectónica en notación C4}
+% =====================================================================
+
+Las secciones anteriores describen la arquitectura en términos de capas y
+responsabilidades. Para que la propuesta sea verificable y comunicable a los
+distintos actores, esta sección la documenta con el modelo C4 (\emph{Context,
+Containers, Components, Code}), que representa el mismo sistema con cuatro
+niveles de zoom y un vocabulario estable.
+
+\subsection{Por qué C4 en este proyecto}
+
+Un sistema interinstitucional tiene audiencias con intereses distintos: un
+coordinador de emergencia necesita entender qué hace el sistema y con quién se
+comunica; un equipo técnico necesita saber qué se despliega y con qué
+tecnología; un auditor necesita ver dónde queda la traza de las decisiones. C4
+resuelve esa tensión con niveles sucesivos:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Nivel 1 --- Contexto:} el sistema como una caja, sus usuarios y
+        los sistemas externos con los que intercambia información.
+  \item \textbf{Nivel 2 --- Contenedores:} las unidades desplegables
+        (aplicaciones, servicios y almacenes de datos) y su tecnología.
+  \item \textbf{Nivel 3 --- Componentes:} el interior de un contenedor
+        relevante; aquí se documentan tres: interoperabilidad, evaluación de
+        daños con IA y optimización logística.
+  \item \textbf{Despliegue:} la ubicación física de los contenedores, que es
+        donde se sostiene la promesa de operación resiliente.
+\end{itemize}
+
+El nivel 4 (código) se omite deliberadamente: corresponde a la implementación y
+se genera desde el propio repositorio, no desde el diseño arquitectónico.
+
+\subsection{Nivel 1: diagrama de contexto}
+
+El sistema se sitúa entre cinco tipos de usuario y siete familias de sistemas
+externos. Los usuarios no son únicamente operadores: el analista valida las
+evaluaciones de la IA, el coordinador autoriza las asignaciones y el auditor
+reconstruye la traza. Los sistemas externos corresponden a las fuentes de
+información descritas en la sección 4.1 y confirman el principio de integrar
+antes que reemplazar: ninguno de ellos es sustituido por la plataforma.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{figuras/c4_l1_contexto.png}
+  \caption{Nivel 1 --- Diagrama de contexto del sistema.}
+  \label{fig:c4-contexto}
+\end{figure}
+
+\subsection{Nivel 2: diagrama de contenedores}
+
+La plataforma se organiza en tres capas de contenedores: presentación y acceso,
+servicios y datos. La separación entre el bus de eventos y las bases de datos
+permite que la evaluación de daños dispare el recálculo de asignaciones sin
+acoplar los servicios entre sí, y que el COP reciba las actualizaciones de
+situación en tiempo real.
+
+\begin{landscape}
+\begin{figure}[p]
+  \centering
+  \includegraphics[height=0.92\textheight]{figuras/c4_l2_contenedores.png}
+  \caption{Nivel 2 --- Diagrama de contenedores de la plataforma.}
+  \label{fig:c4-contenedores}
+\end{figure}
+\end{landscape}
+
+La tabla~\ref{tab:c4-modulos} muestra la correspondencia entre los módulos
+funcionales enunciados en la sección 5.3 y los contenedores del nivel 2, de modo
+que la arquitectura de aplicaciones y la vista C4 describan el mismo sistema.
+
+\begin{table}[htbp]
+\centering
+\caption{Correspondencia entre los módulos de la arquitectura de aplicaciones y
+los contenedores C4.}
+\label{tab:c4-modulos}
+\begin{tabularx}{\textwidth}{@{}LL@{}}
+\toprule
+\textbf{Módulo (sección 5.3)} & \textbf{Contenedor(es) del nivel 2} \\
+\midrule
+Motor de interoperabilidad & Motor de interoperabilidad + bus de eventos \\
+Sistema GIS y visualización & Servicio geoespacial + Common Operating Picture \\
+Módulo de evaluación de daños & Servicio de evaluación de daños (IA) + repositorio de imágenes \\
+Módulos de IA y analítica & Servicio de evaluación de daños (IA) \\
+Motor de optimización logística & Motor de optimización logística \\
+Gestión de inventarios y recursos & Gestión de recursos e inventarios \\
+Sistema de mando y coordinación & Common Operating Picture + app de campo offline-first \\
+Auditoría, seguridad y administración & API Gateway, servicio de gobernanza y almacén de auditoría \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Nivel 3: componentes del motor de interoperabilidad}
+
+Este contenedor materializa el flujo \emph{recibir $\rightarrow$ normalizar
+$\rightarrow$ validar $\rightarrow$ georreferenciar $\rightarrow$ distribuir} de
+la sección 4.2. Dos componentes merecen atención: el catálogo de fuentes y
+contratos, que concentra los acuerdos de intercambio con cada entidad, y el
+registrador de procedencia, que garantiza el requisito de que cada dato conserve
+origen, fecha de actualización y nivel de confianza.
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[height=0.88\textheight]{figuras/c4_l3_interoperabilidad.png}
+  \caption{Nivel 3 --- Componentes del motor de interoperabilidad.}
+  \label{fig:c4-interop}
+\end{figure}
+
+\subsection{Nivel 3: componentes del servicio de evaluación de daños}
+
+El diseño hace explícito que la IA no decide. Entre el modelo y el resto del
+sistema se interpone una cola de revisión humana: solo las evaluaciones
+validadas por el analista se publican en el bus y quedan disponibles para la
+optimización. El monitor de desempeño registra precisión, \emph{recall},
+F1-score y falsos positivos por tipo de desastre, que son las métricas de la
+sección~\ref{sec:metricas}.
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[height=0.88\textheight]{figuras/c4_l3_ia.png}
+  \caption{Nivel 3 --- Componentes del servicio de evaluación de daños (IA).}
+  \label{fig:c4-ia}
+\end{figure}
+
+\subsection{Nivel 3: componentes del motor de optimización logística}
+
+El motor no entrega una orden sino alternativas comparadas. El comparador de
+escenarios evalúa cada solución por cobertura, tiempo, kilómetros y costo, y el
+explicador expone los supuestos y las restricciones activas, de manera que el
+coordinador pueda validar, modificar o rechazar la propuesta con criterio. La
+decisión adoptada se registra en el servicio de gobernanza, cerrando la cadena
+crítica de la sección 1.
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[height=0.88\textheight]{figuras/c4_l3_optimizacion.png}
+  \caption{Nivel 3 --- Componentes del motor de optimización logística.}
+  \label{fig:c4-opt}
+\end{figure}
+
+\subsection{Despliegue y operación resiliente}
+
+El diagrama de despliegue muestra tres ubicaciones: la nube nacional, el nodo
+\emph{edge} del puesto de mando unificado municipal y los dispositivos de campo.
+El nodo municipal conserva una réplica territorial de la base operacional y un
+optimizador acotado, de modo que el municipio pueda seguir coordinando con el
+último estado conocido aunque caiga el enlace nacional. El agente de
+sincronización encola los cambios locales y los reconcilia al restablecerse la
+conexión, que es el mecanismo concreto detrás del indicador de operaciones
+sostenidas con conectividad degradada.
+
+\begin{landscape}
+\begin{figure}[p]
+  \centering
+  \includegraphics[height=0.92\textheight]{figuras/c4_despliegue.png}
+  \caption{Diagrama de despliegue --- nube nacional, nodo \emph{edge} municipal
+  y dispositivos de campo.}
+  \label{fig:c4-despliegue}
+\end{figure}
+\end{landscape}
+
+\subsection{Decisiones arquitectónicas}
+
+La tabla~\ref{tab:adr} recoge las decisiones que explican por qué la
+arquitectura tiene esta forma y no otra. Cada una responde a una restricción del
+problema, no a una preferencia tecnológica.
+
+\begin{table}[htbp]
+\centering
+\caption{Decisiones arquitectónicas, alternativa descartada y justificación.}
+\label{tab:adr}
+\begin{tabularx}{\textwidth}{@{}p{3.6cm}LL@{}}
+\toprule
+\textbf{Decisión} & \textbf{Alternativa descartada} & \textbf{Justificación} \\
+\midrule
+Integración mediante adaptadores y bus de eventos &
+Un sistema único que reemplace los sistemas de cada entidad &
+Las entidades conservan sus capacidades; reduce el riesgo y la resistencia
+institucional. \\
+\addlinespace
+Modelo canónico con procedencia y nivel de confianza &
+Replicar los datos en el formato propio de cada fuente &
+Permite comparar información heterogénea y auditar de dónde salió cada dato. \\
+\addlinespace
+IA con revisión humana obligatoria &
+Evaluación automática publicada directamente &
+El desempeño del modelo varía según el desastre y el territorio; evita la caja
+negra en decisiones críticas. \\
+\addlinespace
+Separar predicción, optimización y autorización &
+Un único motor que decida de extremo a extremo &
+Cada etapa se puede validar y medir por separado; la responsabilidad de la
+decisión permanece en la persona. \\
+\addlinespace
+Nodo \emph{edge} municipal y app \emph{offline-first} &
+Dependencia total de la nube nacional &
+La conectividad es justamente lo que falla en una emergencia. \\
+\addlinespace
+Auditoría \emph{append-only} separada de la base operacional &
+Registrar la traza en las mismas tablas operativas &
+La traza no debe poder alterarse al corregir el estado de la operación. \\
+\addlinespace
+Optimización con tiempo de cómputo acotado &
+Buscar el óptimo global sin límite de tiempo &
+En respuesta a desastres una buena alternativa a tiempo vale más que la óptima
+tarde. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Trazabilidad con la arquitectura empresarial}
+
+La vista C4 no sustituye a la arquitectura empresarial de la sección 5: la hace
+verificable. La tabla~\ref{tab:c4-ae} muestra cómo cada capa se materializa en
+elementos concretos del modelo.
+
+\begin{table}[htbp]
+\centering
+\caption{Trazabilidad entre las capas de arquitectura empresarial y la vista C4.}
+\label{tab:c4-ae}
+\begin{tabularx}{\textwidth}{@{}p{3.6cm}L@{}}
+\toprule
+\textbf{Capa} & \textbf{Elementos C4 que la materializan} \\
+\midrule
+Negocio & Actores y sistemas externos del nivel 1; puntos de decisión humana en
+los niveles 3 (cola de revisión y autorización de la asignación). \\
+\addlinespace
+Información & Modelo canónico del motor de interoperabilidad; base de datos
+operacional, repositorio de imágenes y almacén de auditoría del nivel 2. \\
+\addlinespace
+Aplicaciones & Contenedores de la capa de servicios y sus componentes
+documentados en el nivel 3. \\
+\addlinespace
+Tecnología & Diagrama de despliegue: nube nacional, nodo \emph{edge} municipal y
+dispositivos de campo. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\input{seccion_prototipo.tex}
+
+% =====================================================================
+\section{Contribución, métricas y trabajos futuros}
+% =====================================================================
+
+\subsection{Contribución}
+
+\begin{table}[htbp]
+\centering
+\caption{Situación actual, propuesta arquitectónica y resultado esperado.}
+\label{tab:contribucion}
+\begin{tabularx}{\textwidth}{@{}LLL@{}}
+\toprule
+\textbf{Situación} & \textbf{Propuesta} & \textbf{Resultado} \\
+\midrule
+Información distribuida     & Interoperabilidad        & Visión común \\
+Evaluación manual           & IA + imágenes            & Evaluación preliminar rápida \\
+Asignación subjetiva        & Optimización + experto   & Decisiones cuantificables \\
+Rutas estáticas             & Optimización dinámica    & Mejor logística \\
+Dependencia de conectividad & Edge/\emph{offline-first} & Resiliencia \\
+Sistemas aislados           & \emph{System of Systems} & Coordinación \\
+Decisiones no trazables     & Auditoría                & Transparencia \\
+Recursos limitados          & Priorización por impacto & Mejor asignación \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Métricas}
+\label{sec:metricas}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Eficiencia:} reducción del tiempo de asignación, llegada,
+        kilómetros y costos.
+  \item \textbf{Cobertura:} población prioritaria atendida, necesidades
+        satisfechas e infraestructura crítica cubierta.
+  \item \textbf{Resiliencia:} disponibilidad, latencia y porcentaje de
+        operaciones \emph{offline}. El prototipo de la
+        sección~\ref{sec:prototipo} ya mide latencia de alerta, pérdida de
+        datos, duplicados y tiempo de convergencia bajo una caída del enlace.
+  \item \textbf{IA:} precisión, \emph{recall}, F1-score, falsos positivos y
+        tiempo de procesamiento.
+  \item \textbf{Gobernanza:} decisiones auditables, recursos trazables y
+        tiempo para reconstruir decisiones.
+\end{itemize}
+
+\subsection{Trabajos futuros}
+
+\begin{enumerate}[leftmargin=*]
+  \item Llevar el prototipo a varios nodos \emph{edge} sincronizando a la vez,
+        con resolución de conflictos y despliegue en la nube (AWS).
+  \item Validar el detector con series reales de estaciones hidrometeorológicas
+        y sísmicas, e integrar un modelo entrenado en el mismo punto del flujo.
+  \item Integrar sistemas nacionales y regionales existentes.
+  \item Desarrollar modelos especializados por tipo de desastre.
+  \item Usar imágenes SAR para escenarios con nubosidad.
+  \item Incorporar drones y nuevas fuentes de observación.
+  \item Desarrollar modelos predictivos de necesidades.
+  \item Construir gemelos digitales de territorios críticos.
+  \item Simular escenarios y comparar estrategias.
+  \item Fortalecer gobernanza e intercambio de datos.
+  \item Evaluar económicamente estrategias preventivas frente a reactivas.
+  \item Aprender de emergencias anteriores.
+\end{enumerate}
+
+Una línea especialmente relevante sería desarrollar un gemelo digital regional
+que permita simular escenarios y estimar cómo cambian los resultados según la
+ubicación de recursos, disponibilidad de vías, condiciones meteorológicas y
+distribución de la población.
+
+% =====================================================================
+\section{Conclusiones}
+% =====================================================================
+
+La respuesta efectiva ante desastres no depende únicamente de disponer de más
+datos ni de incorporar inteligencia artificial. El reto consiste en integrar
+organizaciones, procesos, información y tecnología para convertir datos
+heterogéneos en decisiones oportunas, coordinadas y trazables.
+
+La arquitectura propuesta aborda este reto mediante interoperabilidad,
+capacidades geoespaciales, IA para evaluación preliminar, optimización
+logística, operación resiliente y gobernanza. No busca reemplazar todos los
+sistemas existentes, sino conectarlos dentro de una arquitectura común.
+
+La documentación en notación C4 complementa la propuesta: traduce las capas de
+negocio, información, aplicaciones y tecnología en contenedores y componentes
+concretos, deja explícito dónde interviene la persona que decide y muestra, en
+el diagrama de despliegue, cómo se sostiene la operación cuando falla la
+conectividad.
+
+El prototipo convierte esa promesa en evidencia medible. Con el enlace caído,
+el nodo \emph{edge} siguió detectando y alertando en milisegundos, conservó
+todas las lecturas y las entregó a la nube sin duplicados al reconectarse. La
+alternativa centralizada perdió un tercio de los datos y casi todas las
+alertas de la caída. El experimento también mostró que el tope del
+\emph{backoff} domina el tiempo de convergencia, un parámetro que la
+arquitectura debe ajustar de forma explícita.
+
+La tesis central es que una respuesta moderna a desastres debe entenderse como
+un sistema de sistemas. La combinación de Arquitectura Empresarial,
+interoperabilidad, GIS, IA, optimización matemática, resiliencia tecnológica y
+gobernanza puede mejorar la coordinación y proporcionar una base medible para
+implementaciones regionales o nacionales.
+
+% =====================================================================
+\section*{Referencias iniciales}
+\addcontentsline{toc}{section}{Referencias iniciales}
+% =====================================================================
+
+\begin{itemize}[leftmargin=*]
+  \item Mani, Z. A., Sultan, M. A. S., Plummer, V., \& Goniewicz, K. (2023).
+        \emph{Navigating Interoperability in Disaster Management}.
+        International Journal of Disaster Risk Science, 14, 873--885.
+  \item Kaur, N., Lee, C.-C., Mostafavi, A., \& Mahdavi-Amiri, A. (2022).
+        \emph{Large-scale Building Damage Assessment using a Novel
+        Hierarchical Transformer Architecture on Satellite Images}.
+  \item Alisjahbana, I., Li, J., Strong, B., \& Zhang, Y. (2024).
+        \emph{DeepDamageNet: A two-step deep-learning model for
+        multi-disaster building damage segmentation and classification using
+        satellite imagery}.
+  \item Shehadeh, K. S., \& Tucker, E. L. (2020). \emph{Stochastic
+        Optimization Models for Location and Inventory Prepositioning of
+        Disaster Relief Supplies}.
+  \item Maroof, A., et al. (2023). \emph{Vehicle Routing Optimization for
+        Humanitarian Supply Chain: A Systematic Review}. IEEE Access, 11,
+        127157--127175.
+  \item Bonfanti, R. C., et al. (2024). \emph{The Role of Trust in Disaster
+        Risk Reduction: A Critical Review}.
+  \item Copernicus Emergency Management Service (CEMS). Documentación sobre
+        información geoespacial para gestión de emergencias.
+  \item Unidad Nacional para la Gestión del Riesgo de Desastres (UNGRD).
+        \emph{Sistema Nacional de Información para la Gestión del Riesgo de
+        Desastres}.
+  \item United Nations Office for Disaster Risk Reduction (UNDRR).
+        \emph{Sendai Framework for Disaster Risk Reduction 2015--2030}.
+\end{itemize}
+
+\end{document}

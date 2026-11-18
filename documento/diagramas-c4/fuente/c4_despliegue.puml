@@ -1,0 +1,60 @@
+@startuml c4_despliegue
+!include <C4/C4_Deployment>
+
+title Diagrama de Despliegue\nOperación resiliente: nube nacional, nodo edge municipal y dispositivos de campo
+
+Deployment_Node(nube, "Nube nacional", "Región cloud con alta disponibilidad") {
+  Deployment_Node(k8s, "Clúster de contenedores", "Orquestador de contenedores, múltiples zonas") {
+    Container(gateway, "API Gateway y autenticación", "API Gateway, OAuth2/OIDC", "Acceso por rol y entidad")
+    Container(interop, "Motor de interoperabilidad", "Servicio de integración", "Normaliza y distribuye la información")
+    Container(ia_svc, "Servicio de evaluación de daños (IA)", "Servicio de inferencia con GPU", "Evaluación preliminar sobre imágenes")
+    Container(opt_svc, "Motor de optimización logística", "Servicio + solver", "Asignación, ruteo y priorización")
+    Container(gis_svc, "Servicio geoespacial", "Servicio + servidor de mapas", "Capas territoriales")
+    Container(cop, "Common Operating Picture", "Aplicación web", "Panorama común de la situación")
+  }
+  Deployment_Node(datos_nube, "Servicios de datos gestionados", "Persistencia con replicación") {
+    ContainerDb(db_op, "Base de datos operacional", "PostgreSQL + PostGIS", "Datos operativos georreferenciados")
+    ContainerDb(lake, "Repositorio de imágenes y sensores", "Almacenamiento de objetos", "Imágenes y series de tiempo")
+    ContainerDb(bus, "Bus de eventos", "Middleware de mensajería", "Distribución entre servicios")
+    ContainerDb(audit, "Almacén de auditoría", "Registro append-only", "Traza inmutable de decisiones")
+  }
+}
+
+Deployment_Node(municipio, "Nodo edge municipal / PMU", "Servidor local en el puesto de mando unificado") {
+  Deployment_Node(edge_rt, "Tiempo de ejecución local", "Contenedores en el sitio") {
+    Container(cop_local, "COP local", "Aplicación web", "Mantiene el panorama del territorio aunque caiga el enlace nacional")
+    Container(opt_local, "Optimizador local acotado", "Servicio + solver", "Recalcula asignaciones del municipio con el último estado conocido")
+    Container(sync, "Agente de sincronización", "Servicio de replicación", "Encola cambios locales y reconcilia al restablecerse la conexión")
+    ContainerDb(db_local, "Réplica operacional local", "PostgreSQL + PostGIS", "Subconjunto territorial de datos y misiones")
+  }
+}
+
+Deployment_Node(campo, "Dispositivos de campo", "Equipos de los organismos de socorro") {
+  Deployment_Node(movil_dev, "Teléfono o tableta", "Android / iOS") {
+    Container(móvil, "App de campo offline-first", "App móvil", "Reporta y trabaja sin señal; sincroniza al recuperar conectividad")
+  }
+  Deployment_Node(dron_dev, "Dron y sensores IoT", "Equipos de captura en sitio") {
+    Container(agente_iot, "Agente de captura", "Software embebido", "Envía imágenes y telemetría cuando hay enlace")
+  }
+}
+
+Rel(cop, gateway, "Consume servicios", "JSON/HTTPS")
+Rel(gateway, interop, "Enruta peticiones", "JSON/HTTPS")
+Rel(interop, bus, "Publica eventos", "Mensajería")
+Rel(interop, db_op, "Persiste datos normalizados", "SQL")
+Rel(ia_svc, lake, "Lee imágenes", "Objetos")
+Rel(opt_svc, db_op, "Lee demanda y escribe propuestas", "SQL")
+Rel(gis_svc, db_op, "Consulta geometrías", "SQL/PostGIS")
+Rel(gateway, audit, "Registra la traza de decisiones", "Append-only")
+
+Rel(sync, gateway, "Replica cambios y descarga el estado del territorio", "JSON/HTTPS, enlace intermitente")
+Rel(cop_local, db_local, "Lee y escribe el estado local", "SQL")
+Rel(opt_local, db_local, "Lee y escribe propuestas locales", "SQL")
+Rel(sync, db_local, "Reconcilia y resuelve conflictos", "SQL")
+
+Rel(móvil, sync, "Sincroniza por red local o malla cuando no hay internet", "JSON/HTTPS")
+Rel(móvil, gateway, "Sincroniza directamente cuando hay conectividad", "JSON/HTTPS")
+Rel(agente_iot, interop, "Envía imágenes y telemetría", "MQTT / carga")
+
+SHOW_LEGEND()
+@enduml

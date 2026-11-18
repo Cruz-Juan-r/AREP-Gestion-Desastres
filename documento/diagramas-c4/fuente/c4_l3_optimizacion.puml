@@ -1,0 +1,39 @@
+@startuml c4_l3_optimizacion
+!include <C4/C4_Component>
+
+title Nivel 3 - Diagrama de Componentes\nMotor de optimización logística: propone alternativas cuantificadas; el responsable decide
+
+Person(coordinador, "Coordinador de emergencia", "Valida, modifica o autoriza la asignación")
+ContainerDb(bus, "Bus de eventos", "Middleware de mensajería", "Evaluaciones validadas y cambios de estado")
+Container(rec_svc, "Gestión de recursos e inventarios", "Servicio de aplicación", "Disponibilidad de suministros, vehículos y personal")
+Container(gis_svc, "Servicio geoespacial", "Servicio + servidor de mapas", "Red vial operativa y tiempos de viaje")
+
+Container_Boundary(opt, "Motor de optimización logística") {
+  Component(demanda, "Constructor de demanda", "Componente de aplicación", "Traduce impacto y reportes de campo en necesidades cuantificadas por zona")
+  Component(priorizador, "Priorizador multicriterio", "Modelo de decisión", "Ordena las zonas por impacto, urgencia, vulnerabilidad y cobertura")
+  Component(modelo_opt, "Modelo de asignación y ruteo", "Formulación de Investigación de Operaciones", "Asignación de recursos, localización y ruteo con restricciones de capacidad y vías")
+  Component(solver, "Solver", "Motor de optimización", "Resuelve el modelo y genera alternativas factibles en tiempo acotado")
+  Component(escenarios, "Comparador de escenarios", "Componente analítico", "Contrasta alternativas por cobertura, tiempo, kilómetros y costo")
+  Component(explicador, "Explicador de la propuesta", "Componente de aplicación", "Expone supuestos, restricciones activas y qué cambia entre alternativas")
+}
+
+ContainerDb(db_op, "Base de datos operacional", "PostgreSQL + PostGIS", "Necesidades, recursos, propuestas y misiones")
+Container(cop, "Common Operating Picture", "Aplicación web", "Presenta las alternativas y recoge la decisión")
+Container(gob_svc, "Servicio de gobernanza y auditoría", "Servicio de aplicación", "Traza de la decisión adoptada")
+
+Rel(bus, demanda, "Dispara el cálculo con la evaluación validada", "Mensajería")
+Rel(demanda, db_op, "Lee reportes de campo y necesidades", "SQL")
+Rel(demanda, priorizador, "Entrega la demanda por zona")
+Rel(priorizador, modelo_opt, "Entrega las zonas priorizadas")
+Rel(rec_svc, modelo_opt, "Aporta disponibilidad de recursos y flota", "JSON/HTTPS")
+Rel(gis_svc, modelo_opt, "Aporta red vial operativa y tiempos de viaje", "JSON/HTTPS")
+Rel(modelo_opt, solver, "Entrega la instancia del modelo")
+Rel(solver, escenarios, "Devuelve las alternativas factibles")
+Rel(escenarios, db_op, "Guarda las propuestas evaluadas", "SQL")
+Rel(escenarios, explicador, "Entrega las alternativas comparadas")
+Rel(explicador, cop, "Presenta las propuestas con supuestos y restricciones", "JSON/HTTPS")
+Rel(coordinador, cop, "Valida, modifica o autoriza", "HTTPS")
+Rel(cop, gob_svc, "Registra la decisión, su justificación y el resultado", "JSON/HTTPS")
+
+SHOW_LEGEND()
+@enduml

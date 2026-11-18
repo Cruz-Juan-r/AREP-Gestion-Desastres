@@ -1,0 +1,25 @@
+# National cloud API. Environment variables keep the names of the Python prototype.
+server:
+  port: ${PORT:8000}
+
+spring:
+  application:
+    name: cloud-api
+  main:
+    banner-mode: off
+
+cloud:
+  db: ${CLOUD_DB:cloud.db}
+  fault-ack-loss: ${FAULT_ACK_LOSS:0}
+
+# Swagger UI at /docs and the OpenAPI document at /openapi.json (same paths as FastAPI)
+springdoc:
+  swagger-ui:
+    path: /docs
+  api-docs:
+    path: /openapi.json
+
+logging:
+  level:
+    root: WARN
+    edu.eci.arep.sngrd: INFO

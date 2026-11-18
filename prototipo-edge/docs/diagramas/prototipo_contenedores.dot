@@ -1,0 +1,59 @@
+// Vista de contenedores del prototipo (estilo C4, nivel 2)
+// Render: dot -Tpng -Gdpi=200 prototipo_contenedores.dot -o prototipo_contenedores.png
+digraph prototipo {
+  graph [rankdir=TB, forcelabels=true, fontname="Helvetica", fontsize=11, nodesep=0.35, ranksep=0.55,
+         pad=0.2, newrank=true, compound=true, bgcolor="white"];
+  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10,
+         margin="0.14,0.08", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=8.5, color="#5c6f7e", fontcolor="#33424e",
+         arrowsize=0.7, penwidth=1.1];
+
+  // construido = azul sólido; simulado/emulado = gris discontinuo
+  subgraph cluster_campo {
+    label="Campo — SIMULADO"; style="rounded,dashed"; color="#9aa5ae"; fontcolor="#5c6f7e";
+    sensores [label=<<b>Simulador de dispositivos</b><br/><font point-size="8.5">Python · 50 dispositivos a 1 Hz<br/>ríos, lluvia, sismo, drones<br/>24 episodios con verdad de terreno</font>>,
+              fillcolor="#eef1f4", color="#9aa5ae", style="rounded,filled,dashed"];
+    respondientes [label=<<b>Respondientes locales</b><br/><font point-size="8.5">suscriptor de alertas<br/>(mide la latencia)</font>>,
+              fillcolor="#eef1f4", color="#9aa5ae", style="rounded,filled,dashed"];
+  }
+
+  subgraph cluster_edge {
+    label="Nodo edge del PMU municipal — CONSTRUIDO"; style="rounded"; color="#2a78d6"; fontcolor="#1c5cab"; penwidth=1.6;
+    broker   [label=<<b>Broker MQTT</b><br/><font point-size="8.5">Mosquitto · QoS 1</font>>, fillcolor="#dbe9fb", color="#2a78d6"];
+    ingesta  [label=<<b>Ingesta y validación</b><br/><font point-size="8.5">contrato Telemetry (Pydantic)<br/>deduplicación por event_id</font>>, fillcolor="#dbe9fb", color="#2a78d6"];
+    detector [label=<<b>Detector de eventos</b><br/><font point-size="8.5">umbrales por tipo de sensor<br/>+ z-score móvil por dispositivo</font>>, fillcolor="#dbe9fb", color="#2a78d6"];
+    store    [label=<<b>Almacén local + outbox</b><br/><font point-size="8.5">SQLite (WAL)<br/>lecturas, alertas, synced</font>>, shape=cylinder, fillcolor="#dbe9fb", color="#2a78d6"];
+    audit    [label=<<b>Bitácora de auditoría</b><br/><font point-size="8.5">append-only, encadenada<br/>con SHA-256</font>>, shape=cylinder, fillcolor="#dbe9fb", color="#2a78d6"];
+    sync     [label=<<b>Agente de sincronización</b><br/><font point-size="8.5">lotes · reintento con backoff<br/>marca synced solo con ACK</font>>, fillcolor="#dbe9fb", color="#2a78d6"];
+    cop      [label=<<b>COP local</b><br/><font point-size="8.5">FastAPI + SSE<br/>tablero de alertas</font>>, fillcolor="#dbe9fb", color="#2a78d6"];
+  }
+
+  wan [label=<<b>Enlace WAN</b><br/><font point-size="8.5">EMULADO · proxy TCP<br/>latencia 200±80 ms por sentido<br/>corte controlado del enlace</font>>,
+       fillcolor="#eef1f4", color="#9aa5ae", style="rounded,filled,dashed"];
+
+  subgraph cluster_nube {
+    label="Nube nacional — CONSTRUIDA (mínima)"; style="rounded"; color="#2a78d6"; fontcolor="#1c5cab"; penwidth=1.6;
+    api   [label=<<b>API central</b><br/><font point-size="8.5">FastAPI<br/>POST /api/v1/sync (idempotente)<br/>POST /api/v1/ingest (línea base)</font>>, fillcolor="#dbe9fb", color="#2a78d6"];
+    dbn   [label=<<b>Base consolidada</b><br/><font point-size="8.5">SQLite · PK event_id</font>>, shape=cylinder, fillcolor="#dbe9fb", color="#2a78d6"];
+  }
+
+  fuera [label=<<b>Fuera del prototipo</b><br/><font point-size="8.5">optimización logística, IA sobre imágenes,<br/>GIS, interoperabilidad con UNGRD/SNIGRD,<br/>app de campo, autenticación</font>>,
+         fillcolor="#f7f7f7", color="#c4c9ce", fontcolor="#6b6b6b", style="rounded,filled,dotted"];
+
+  sensores -> broker   [label="1. sensors/{tipo}/{id}\nMQTT QoS 1", labelangle=0];
+  broker   -> ingesta  [label="2. suscripción"];
+  ingesta  -> detector [label="3. evalúa"];
+  detector -> store    [label="4. guarda lectura\n+ alerta (1 transacción)"];
+  detector -> audit    [label="registra alerta", style=dashed];
+  detector -> broker   [label="5. alerts/{sev}/{id}", constraint=false];
+  broker   -> respondientes [xlabel="6. alerta MQTT", constraint=false];
+  detector -> cop      [label="5'. SSE"];
+  store    -> sync     [label="7. pendientes"];
+  sync     -> wan      [label="8. lote JSON/HTTP"];
+  wan      -> api      [label="9."];
+  api      -> dbn      [label="INSERT OR IGNORE"];
+  sync     -> audit    [label="registra lote y\ncambios de enlace", style=dashed];
+  sensores -> wan      [label="línea base:\nlectura directa", style=dotted, color="#eb6834", fontcolor="#b4441c"];
+
+  { rank=same; api; fuera }
+}

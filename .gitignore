@@ -1,0 +1,14 @@
+# Copias de entrega (se generan a partir de este mismo repositorio)
+entrega/
+*.zip
+
+# Compilados, datos locales y entorno
+target/
+__pycache__/
+*.pyc
+data/
+logs/
+*.db
+*.db-*
+.idea/
+*.iml

@@ -1,0 +1,63 @@
+{
+  "description": "One reading published by a field device (MQTT topic sensors/{type}/{device}).",
+  "properties": {
+    "event_id": {
+      "description": "Globally unique id; idempotency key end to end",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "device_id": {
+      "title": "Device Id",
+      "type": "string"
+    },
+    "sensor_type": {
+      "enum": [
+        "river_level",
+        "rainfall",
+        "seismic",
+        "drone"
+      ],
+      "title": "Sensor Type",
+      "type": "string"
+    },
+    "value": {
+      "title": "Value",
+      "type": "number"
+    },
+    "unit": {
+      "title": "Unit",
+      "type": "string"
+    },
+    "lat": {
+      "title": "Lat",
+      "type": "number"
+    },
+    "lon": {
+      "title": "Lon",
+      "type": "number"
+    },
+    "seq": {
+      "description": "Per-device sequence number",
+      "minimum": 0,
+      "title": "Seq",
+      "type": "integer"
+    },
+    "ts_ms": {
+      "description": "Capture time at the device, epoch milliseconds",
+      "title": "Ts Ms",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "device_id",
+    "sensor_type",
+    "value",
+    "unit",
+    "lat",
+    "lon",
+    "seq",
+    "ts_ms"
+  ],
+  "title": "Telemetry",
+  "type": "object"
+}

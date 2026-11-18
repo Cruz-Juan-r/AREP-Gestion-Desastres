@@ -1,0 +1,36 @@
+@startuml c4_l3_ia
+!include <C4/C4_Component>
+
+title Nivel 3 - Diagrama de Componentes\nServicio de evaluación de daños (IA): la evaluación preliminar siempre pasa por revisión humana
+
+Person(analista, "Analista de riesgo y daños", "Confirma o corrige la evaluación preliminar")
+ContainerDb(lake, "Repositorio de imágenes y sensores", "Almacenamiento de objetos", "Imágenes satelitales y de dron")
+Container(gis_svc, "Servicio geoespacial", "Servicio + servidor de mapas", "Población, vías e infraestructura crítica")
+
+Container_Boundary(ia, "Servicio de evaluación de daños (IA)") {
+  Component(prep, "Preprocesamiento de imágenes", "Pipeline de datos", "Recorta, corregistra y filtra nubosidad de las imágenes previas y posteriores al evento")
+  Component(modelo, "Modelo de segmentación y clasificación", "Red neuronal de visión por computador", "Localiza edificaciones y estima el nivel de daño por zona")
+  Component(estimador, "Estimador de impacto", "Componente analítico", "Cruza el daño con población e infraestructura crítica para estimar la afectación")
+  Component(revision, "Cola de revisión humana", "Componente de flujo de trabajo", "Expone la evaluación preliminar con su nivel de confianza para que el analista la valide")
+  Component(publicador, "Publicador de evaluaciones", "Cliente de mensajería", "Publica únicamente las evaluaciones validadas")
+  Component(monitor, "Monitor de desempeño del modelo", "Componente de observabilidad", "Precisión, recall, F1-score, falsos positivos y deriva por tipo de desastre")
+}
+
+ContainerDb(db_op, "Base de datos operacional", "PostgreSQL + PostGIS", "Zonas, daños y evaluaciones validadas")
+ContainerDb(bus, "Bus de eventos", "Middleware de mensajería", "Distribución a los demás servicios")
+Container(cop, "Common Operating Picture", "Aplicación web", "Muestra zonas críticas y evaluaciones")
+
+Rel(lake, prep, "Entrega imágenes del área afectada", "Objetos")
+Rel(prep, modelo, "Entrega los mosaicos preparados")
+Rel(modelo, estimador, "Entrega el daño por edificación y zona")
+Rel(modelo, monitor, "Reporta métricas de la inferencia")
+Rel(estimador, gis_svc, "Consulta población e infraestructura crítica", "JSON/HTTPS")
+Rel(estimador, revision, "Publica la evaluación preliminar")
+Rel(revision, cop, "Muestra la evaluación pendiente de validación", "JSON/HTTPS")
+Rel(analista, cop, "Confirma o corrige la evaluación", "HTTPS")
+Rel(revision, db_op, "Guarda la evaluación validada y quién la validó", "SQL")
+Rel(revision, publicador, "Notifica la validación")
+Rel(publicador, bus, "Publica la evaluación validada", "Mensajería")
+
+SHOW_LEGEND()
+@enduml

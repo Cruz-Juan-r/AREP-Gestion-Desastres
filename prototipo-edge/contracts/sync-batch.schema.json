@@ -1,0 +1,191 @@
+{
+  "$defs": {
+    "Alert": {
+      "description": "Alert produced by the detector (MQTT topic alerts/{severity}/{device}).",
+      "properties": {
+        "alert_id": {
+          "title": "Alert Id",
+          "type": "string"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "device_id": {
+          "title": "Device Id",
+          "type": "string"
+        },
+        "sensor_type": {
+          "enum": [
+            "river_level",
+            "rainfall",
+            "seismic",
+            "drone"
+          ],
+          "title": "Sensor Type",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "warning",
+            "critical"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "rule": {
+          "enum": [
+            "threshold",
+            "zscore"
+          ],
+          "title": "Rule",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        },
+        "score": {
+          "description": "Threshold ratio or |z| that triggered the alert",
+          "title": "Score",
+          "type": "number"
+        },
+        "lat": {
+          "title": "Lat",
+          "type": "number"
+        },
+        "lon": {
+          "title": "Lon",
+          "type": "number"
+        },
+        "ts_event_ms": {
+          "title": "Ts Event Ms",
+          "type": "integer"
+        },
+        "ts_alert_ms": {
+          "title": "Ts Alert Ms",
+          "type": "integer"
+        },
+        "source": {
+          "enum": [
+            "edge",
+            "cloud"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "device_id",
+        "sensor_type",
+        "severity",
+        "rule",
+        "value",
+        "score",
+        "lat",
+        "lon",
+        "ts_event_ms",
+        "ts_alert_ms",
+        "source"
+      ],
+      "title": "Alert",
+      "type": "object"
+    },
+    "Telemetry": {
+      "description": "One reading published by a field device (MQTT topic sensors/{type}/{device}).",
+      "properties": {
+        "event_id": {
+          "description": "Globally unique id; idempotency key end to end",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "device_id": {
+          "title": "Device Id",
+          "type": "string"
+        },
+        "sensor_type": {
+          "enum": [
+            "river_level",
+            "rainfall",
+            "seismic",
+            "drone"
+          ],
+          "title": "Sensor Type",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "lat": {
+          "title": "Lat",
+          "type": "number"
+        },
+        "lon": {
+          "title": "Lon",
+          "type": "number"
+        },
+        "seq": {
+          "description": "Per-device sequence number",
+          "minimum": 0,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "ts_ms": {
+          "description": "Capture time at the device, epoch milliseconds",
+          "title": "Ts Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "device_id",
+        "sensor_type",
+        "value",
+        "unit",
+        "lat",
+        "lon",
+        "seq",
+        "ts_ms"
+      ],
+      "title": "Telemetry",
+      "type": "object"
+    }
+  },
+  "description": "Edge -> cloud synchronisation request (POST /api/v1/sync).",
+  "properties": {
+    "node_id": {
+      "title": "Node Id",
+      "type": "string"
+    },
+    "batch_id": {
+      "title": "Batch Id",
+      "type": "string"
+    },
+    "events": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Telemetry"
+      },
+      "title": "Events",
+      "type": "array"
+    },
+    "alerts": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Alert"
+      },
+      "title": "Alerts",
+      "type": "array"
+    }
+  },
+  "required": [
+    "node_id"
+  ],
+  "title": "SyncBatch",
+  "type": "object"
+}

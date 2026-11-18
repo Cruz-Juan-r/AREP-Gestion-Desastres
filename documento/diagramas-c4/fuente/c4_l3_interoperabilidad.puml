@@ -1,0 +1,49 @@
+@startuml c4_l3_interoperabilidad
+!include <C4/C4_Component>
+
+title Nivel 3 - Diagrama de Componentes\nMotor de interoperabilidad (recibir → normalizar → validar → georreferenciar → distribuir)
+
+Container(gateway, "API Gateway y autenticación", "API Gateway, OAuth2/OIDC", "Punto único de entrada")
+System_Ext(fuentes, "Fuentes externas", "SNIGRD, Copernicus, IDEAM, IGAC/DANE, salud, inventarios")
+System_Ext(sensores, "Drones y sensores IoT", "Telemetría e imágenes de campo")
+
+Container_Boundary(interop, "Motor de interoperabilidad") {
+  Component(adaptadores, "Adaptadores de fuente", "Conectores REST, SOAP, archivos, MQTT", "Un adaptador por sistema externo; aísla los formatos propios de cada entidad")
+  Component(ingesta, "Servicio de ingesta", "Componente de aplicación", "Recibe lotes y flujos, aplica control de duplicados y deja traza del origen")
+  Component(normalizador, "Normalizador de esquemas", "Motor de transformación", "Traduce al modelo canónico de eventos, daños, necesidades y recursos")
+  Component(validador, "Validador de calidad", "Reglas de negocio y esquemas", "Verifica completitud, rangos, vigencia y asigna el nivel de confianza del dato")
+  Component(geocoder, "Georreferenciador", "Servicio geoespacial", "Resuelve direcciones, coordenadas y códigos DIVIPOLA; asocia el dato al territorio")
+  Component(enriquecedor, "Enriquecedor de contexto", "Componente de aplicación", "Cruza el dato con población, vías e infraestructura crítica de la capa geoespacial")
+  Component(publicador, "Publicador de eventos", "Cliente de mensajería", "Publica el dato canónico en el bus para los demás servicios")
+  Component(catalogo, "Catálogo de fuentes y contratos", "Registro de metadatos", "Fuentes registradas, esquemas, frecuencia, responsable y acuerdos de intercambio")
+  Component(trazador, "Registrador de procedencia", "Componente de auditoría", "Guarda origen, fecha de actualización y transformaciones aplicadas a cada dato")
+}
+
+ContainerDb(db_op, "Base de datos operacional", "PostgreSQL + PostGIS", "Datos normalizados y georreferenciados")
+ContainerDb(lake, "Repositorio de imágenes y sensores", "Almacenamiento de objetos", "Imágenes y series de tiempo")
+ContainerDb(bus, "Bus de eventos", "Middleware de mensajería", "Distribución a los servicios")
+ContainerDb(audit, "Almacén de auditoría", "Registro append-only", "Traza de procedencia y decisiones")
+Container(gis_svc, "Servicio geoespacial", "Servicio + servidor de mapas", "Capas territoriales")
+
+Rel(fuentes, adaptadores, "Entregan reportes, capas e inventarios", "API / archivos")
+Rel(sensores, adaptadores, "Envían telemetría e imágenes", "MQTT / carga")
+Rel(gateway, ingesta, "Envía reportes de las aplicaciones propias", "JSON/HTTPS")
+
+Rel(adaptadores, ingesta, "Entrega el dato crudo con su origen")
+Rel(ingesta, normalizador, "Solicita transformación al modelo canónico")
+Rel(ingesta, lake, "Archiva imágenes y series crudas", "Objetos")
+Rel(normalizador, validador, "Entrega el registro canónico")
+Rel(validador, geocoder, "Envía el registro válido para ubicarlo")
+Rel(geocoder, enriquecedor, "Entrega el registro georreferenciado")
+Rel(enriquecedor, gis_svc, "Consulta capas de población, vías e infraestructura", "JSON/HTTPS")
+Rel(enriquecedor, db_op, "Persiste el dato normalizado", "SQL")
+Rel(enriquecedor, publicador, "Notifica el dato listo para distribuir")
+Rel(publicador, bus, "Publica el evento canónico", "Mensajería")
+
+Rel(adaptadores, catalogo, "Consulta el contrato de la fuente")
+Rel(normalizador, catalogo, "Consulta el esquema vigente")
+Rel(validador, trazador, "Registra reglas aplicadas y nivel de confianza")
+Rel(trazador, audit, "Escribe la procedencia del dato", "Append-only")
+
+SHOW_LEGEND()
+@enduml

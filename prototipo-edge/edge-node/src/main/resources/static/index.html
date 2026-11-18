@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>COP local - Nodo edge PMU</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --ink:#1b3a52; --mut:#5c6f7e; --bg:#f4f6f8; --crit:#b42318; --warn:#b54708; --ok:#067647; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:16px 24px; background:var(--ink); color:#fff; display:flex; justify-content:space-between; align-items:center; }
+  header h1 { font-size:18px; margin:0; font-weight:600; }
+  .pill { padding:4px 10px; border-radius:999px; font-size:13px; font-weight:600; background:#fff2; }
+  .pill.up { background:#dcfae6; color:var(--ok); } .pill.down { background:#fee4e2; color:var(--crit); }
+  main { padding:20px 24px; display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .card { background:#fff; border-radius:10px; padding:14px 16px; box-shadow:0 1px 2px #0001; }
+  .card .k { font-size:12px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; }
+  .card .v { font-size:26px; font-weight:700; margin-top:4px; font-variant-numeric: tabular-nums; }
+  section { padding:0 24px 24px; }
+  table { width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; font-size:14px; }
+  th, td { padding:8px 12px; text-align:left; border-bottom:1px solid #eef1f4; font-variant-numeric: tabular-nums; }
+  th { background:#eef1f4; font-size:12px; text-transform:uppercase; color:var(--mut); }
+  .critical { color:var(--crit); font-weight:700; } .warning { color:var(--warn); font-weight:700; }
+  .new { animation: flash 1.5s ease-out; } @keyframes flash { from { background:#fff3c4; } to { background:#fff; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>COP local &middot; Nodo edge del puesto de mando unificado</h1>
+  <span id="link" class="pill">enlace nube: ?</span>
+</header>
+<main>
+  <div class="card"><div class="k">Lecturas procesadas</div><div class="v" id="m-read">-</div></div>
+  <div class="card"><div class="k">Alertas</div><div class="v" id="m-alerts">-</div></div>
+  <div class="card"><div class="k">Pendientes de sincronizar</div><div class="v" id="m-pend">-</div></div>
+  <div class="card"><div class="k">Procesamiento p95 (ms)</div><div class="v" id="m-p95">-</div></div>
+  <div class="card"><div class="k">Auditoría</div><div class="v" id="m-audit">-</div></div>
+</main>
+<section>
+  <table>
+    <thead><tr><th>Hora</th><th>Severidad</th><th>Regla</th><th>Dispositivo</th><th>Tipo</th><th>Valor</th><th>Latencia (ms)</th><th>Sincronizada</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</section>
+<script>
+const rows = document.getElementById('rows');
+function row(a, isNew) {
+  const tr = document.createElement('tr');
+  if (isNew) tr.className = 'new';
+  const t = new Date(a.ts_alert_ms).toLocaleTimeString();
+  const cells = [t, a.severity, a.rule, a.device_id, a.sensor_type, a.value.toFixed(3),
+                 a.ts_alert_ms - a.ts_event_ms, a.synced === undefined ? 'no' : (a.synced ? 'sí' : 'no')];
+  cells.forEach((c, i) => { const td = document.createElement('td'); td.textContent = c;
+    if (i === 1) td.className = a.severity; tr.appendChild(td); });
+  return tr;
+}
+async function refresh() {
+  try {
+    const m = await (await fetch('/metrics')).json();
+    document.getElementById('m-read').textContent = m.readings_processed;
+    document.getElementById('m-alerts').textContent = m.store.alerts_total;
+    document.getElementById('m-pend').textContent = m.store.events_pending + m.store.alerts_pending;
+    document.getElementById('m-p95').textContent = m.processing_ms_p95 ?? '-';
+    const link = document.getElementById('link');
+    const up = m.sync.link_up;
+    link.textContent = 'enlace nube: ' + (up === null ? 'sin datos' : up ? 'arriba' : 'caído (operando offline)');
+    link.className = 'pill ' + (up === null ? '' : up ? 'up' : 'down');
+    const v = await (await fetch('/audit/verify')).json();
+    document.getElementById('m-audit').textContent = v.valid ? 'íntegra' : 'ALTERADA';
+  } catch (e) { /* node restarting */ }
+}
+async function init() {
+  const recent = await (await fetch('/alerts/recent?limit=30')).json();
+  recent.forEach(a => rows.appendChild(row(a, false)));
+  const es = new EventSource('/alerts/stream');
+  es.addEventListener('alert', ev => {
+    rows.insertBefore(row(JSON.parse(ev.data), true), rows.firstChild);
+    while (rows.children.length > 100) rows.removeChild(rows.lastChild);
+  });
+  refresh(); setInterval(refresh, 1000);
+}
+init();
+</script>
+</body>
+</html>
